@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0f0d" />
+  <meta name="description" content="把你的问题交给一百本书：沿着一百种人类经验，获得回答、思想来源与延伸阅读。" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="人类问题图书馆｜把问题交给一百本书" />
+  <meta property="og:description" content="从好奇、关系、创造、欲望、工作到死亡，让一百本书陪你换一个观察位置。" />
+  <meta property="og:url" content="https://kevinkaslana093.github.io/human-question-library/" />
+  <meta property="og:image" content="https://kevinkaslana093.github.io/human-question-library/assets/covers/005.jpg" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23202321'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='31' fill='%23f3eee5'%3E%E6%83%85%3C/text%3E%3C/svg%3E" />
+  <title>人类问题图书馆｜把问题交给一百本书</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="site-loader" id="siteLoader" aria-live="polite">
+    <div class="loader-brand">HUMAN<br>LIBRARY</div>
+    <div class="loader-track"><span id="loaderBar"></span></div>
+    <div class="loader-count"><span id="loaderCount">000</span> / 100</div>
+    <p>正在整理人类的问题与书</p>
+  </div>
+  <div class="cursor-orb" id="cursorOrb" aria-hidden="true"></div>
+  <header class="topbar">
+    <a class="brand" href="#top" aria-label="回到首页">
+      <span class="brand-mark">情</span>
+      <span>人类问题图书馆</span>
+    </a>
+    <nav>
+      <a href="#talk">问一个问题</a>
+      <a href="#themes">百词索引</a>
+      <a href="#shelf">百本书架</a>
+      <button class="sound" id="soundToggle" aria-label="播放背景音乐"><span>♪</span><span id="soundLabel">播放音乐</span></button>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero dark-stage">
+      <div class="hero-copy-block" data-reveal>
+        <div class="status-pill"><i></i> HUMAN QUESTION ENGINE</div>
+        <h1>把问题，<br>交给<em>一百本书。</em></h1>
+        <p>好奇、关系、创造、欲望、工作、科技、死亡——从一百种人类经验中，找到新的观察位置。</p>
+        <div class="hero-actions">
+          <a class="primary-action" href="#talk">开始提问 <span>↗</span></a>
+          <a class="text-action" href="#themes">探索问题星图 <span>↓</span></a>
+        </div>
+      </div>
+      <div class="hero-stage" id="heroStage" aria-label="漂浮书封星图">
+        <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+        <div class="hero-covers" id="heroCovers"></div>
+        <div class="constellation-core"><span>100</span><small>BOOKS<br>IN ORBIT</small></div>
+      </div>
+      <div class="hero-metrics">
+        <span><b>100</b> BOOKS</span><span><b>100</b> HUMAN THEMES</span><span><b>10</b> KNOWLEDGE FIELDS</span>
+      </div>
+      <div class="scroll-cue"><span></span> SCROLL TO ASK</div>
+    </section>
+
+    <section class="talk-section dark-stage" id="talk">
+      <div class="section-rail"><span>01</span><p>QUESTION<br>TERMINAL</p></div>
+      <div class="talk-grid">
+        <div class="talk-intro" data-reveal>
+          <div class="status-pill"><i></i> ASK THE LIBRARY</div>
+          <h2>此刻，<br>你在想什么？</h2>
+          <p>一个问题、一种感受、一点欲望，或一件想和别人共同完成的事。都可以。</p>
+          <div class="prompt-list" aria-label="输入示例">
+            <button data-prompt="你这里到底有多少本书？为什么人会这么好奇？">人为什么好奇？</button>
+            <button data-prompt="我想找人一起共创一个项目，但不知道怎么合作。">怎样与人共创？</button>
+            <button data-prompt="欲望到底是应该克制，还是应该诚实面对？">如何面对欲望？</button>
+            <button data-prompt="人工智能会把人类带向什么样的未来？">AI 与未来</button>
+          </div>
+        </div>
+        <div class="input-card terminal-card" data-reveal>
+          <div class="terminal-top"><span>INPUT / NATURAL LANGUAGE</span><span class="terminal-live"><i></i> READY</span></div>
+          <label for="moodInput">写下你真正想问的那句话</label>
+          <textarea id="moodInput" maxlength="500" placeholder="比如：人为什么会好奇？我怎样和别人一起创造点东西？"></textarea>
+          <div class="input-meta">
+            <span id="charCount">0 / 500</span>
+            <span class="privacy">只在你的浏览器里发生</span>
+          </div>
+          <button class="submit-btn primary-action" id="submitBtn">
+            <span>让一百本书回答</span><span class="btn-arrow">↗</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="answer-section" id="answer" hidden aria-live="polite">
+      <div class="answer-topline">
+        <span>给这个问题的回信</span><span id="moodTag">正在辨认主题</span>
+      </div>
+      <div class="question-path" id="questionPath"></div>
+      <div class="answer-body">
+        <div class="answer-number">“</div>
+        <div>
+          <h2 id="answerTitle"></h2>
+          <p id="answerText"></p>
+          <div class="small-step" id="smallStep"></div>
+        </div>
+      </div>
+      <div class="inspired-wrap">
+        <p class="inspired-label">这段回答，从这些书中长出来</p>
+        <div class="inspired-books" id="inspiredBooks"></div>
+      </div>
+      <button class="again-btn" id="againBtn">再问一个问题 ↻</button>
+    </section>
+
+    <section class="themes-section dark-stage" id="themes">
+      <div class="themes-head">
+        <div>
+          <div class="section-index">02 / 百词索引</div>
+          <h2>人类不只有<br>几种情绪。</h2>
+        </div>
+        <div class="theme-copy"><strong>100</strong><span>种入口</span><p>从好奇到共创，从身体到文明。点击一个词，看看哪些书在谈论它。</p></div>
+      </div>
+      <div class="domain-tabs" id="domainTabs"></div>
+      <div class="theme-cloud" id="themeCloud"></div>
+    </section>
+
+    <section class="shelf-section light-stage" id="shelf">
+      <div class="shelf-heading">
+        <div>
+          <div class="section-index">03 / 一百本书</div>
+          <h2>不是书单，<br>是一张问题地图。</h2>
+        </div>
+        <p>每本书都连接多个主题。<br>筛选、搜索，或者只是随便翻翻。</p>
+      </div>
+      <div class="shelf-tools">
+        <label class="book-search"><span>⌕</span><input id="bookSearch" type="search" placeholder="搜索书名、作者或主题"></label>
+        <div class="shelf-count"><span id="visibleCount">12</span> / 100 本</div>
+      </div>
+      <div class="book-grid" id="bookGrid"></div>
+      <button class="load-more" id="loadMore">继续翻书架 <span>↓</span></button>
+    </section>
+
+    <section class="footer-quote">
+      <p>“人类的问题很多，<br>好在书也很多。”</p>
+      <span>— 人类问题图书馆，今日值班员</span>
+    </section>
+  </main>
+
+  <footer>
+    <span>人类问题图书馆 · THE HUMAN LIBRARY</span>
+    <span>100 本策展书目 · 书籍资料来自 Open Library</span>
+  </footer>
+
+  <aside class="music-player" id="musicPlayer" aria-label="背景音乐播放器">
+    <div class="music-disc" aria-hidden="true"><span>♪</span></div>
+    <div class="track-copy">
+      <small>BACKGROUND MUSIC</small>
+      <strong>故乡的味道</strong>
+      <span>ふるさとの匂い</span>
+    </div>
+    <button class="player-toggle" id="playerToggle" aria-label="播放背景音乐">▶</button>
+    <div class="music-progress">
+      <input id="musicSeek" type="range" min="0" max="100" value="0" aria-label="音乐进度">
+      <span id="musicTime">0:00 / 0:00</span>
+    </div>
+    <div class="volume-row">
+      <span>VOL</span><input id="musicVolume" type="range" min="0" max="1" value="0.35" step="0.05" aria-label="音乐音量">
+    </div>
+  </aside>
+  <audio id="bgm" src="assets/audio/bgm.mp3" loop preload="metadata"></audio>
+
+  <div class="book-modal" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" hidden>
+    <div class="modal-reading-progress" aria-hidden="true"><span id="modalProgress"></span></div>
+    <button class="modal-back" id="modalBack" aria-label="返回书架">← <span>返回书架</span></button>
+    <button class="modal-close" id="modalClose" aria-label="关闭详情">×</button>
+    <div class="modal-backdrop" id="modalBackdrop"></div>
+    <div class="modal-panel">
+      <div class="modal-visual">
+        <div class="modal-catalogue-mark"><span>HUMAN LIBRARY</span><small>COLLECTION / 100</small></div>
+        <span class="modal-num" id="modalNum"></span>
+        <div class="modal-stage-caption">
+          <span>馆藏观察</span>
+          <strong id="modalStageTitle"></strong>
+        </div>
+        <button class="modal-continue" id="modalContinue">继续阅读 <span>↓</span></button>
+      </div>
+      <div class="modal-copy">
+        <div class="modal-copy-head">
+          <div class="modal-kicker">BOOK FIELD / <span id="modalMood"></span></div>
+          <span class="modal-reading-label">READING NOTE</span>
+        </div>
+        <div class="modal-theme-chips" id="modalThemeChips"></div>
+        <h2 id="modalTitle"></h2>
+        <p class="modal-author" id="modalAuthor"></p>
+        <div class="modal-divider"></div>
+        <h3 id="modalSummary"><span>01</span> 这本书在说什么</h3>
+        <p id="modalIntro"></p>
+        <h3><span>02</span> 它与哪些人类问题相连</h3>
+        <ul id="modalIdeas"></ul>
+        <blockquote id="modalQuote"></blockquote>
+        <div class="modal-actions">
+          <a id="modalSource" target="_blank" rel="noreferrer">查看馆藏资料 <span>↗</span></a>
+          <button id="modalBackToShelf">返回百本书架 <span>←</span></button>
+        </div>
+        <div class="modal-book-nav" aria-label="切换书籍">
+          <button id="modalPrev"><span>←</span><small>PREVIOUS</small><strong>上一册</strong></button>
+          <span id="modalNavCount"></span>
+          <button id="modalNext"><small>NEXT</small><strong>下一册</strong><span>→</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
