@@ -341,7 +341,7 @@ async function showAnswer() {
   setTimeout(async () => {
     const response = buildResponse(text);
     currentAnswerRecord = {...response, questionText:text, createdAt:new Date().toISOString()};
-    await Promise.all(response.books.map(async book => { await resolveOneCover(book); await preloadCover(book, 'small'); }));
+    const coverWork = Promise.all(response.books.map(async book => { await resolveOneCover(book); await preloadCover(book, 'small'); }));
     $('#moodTag').textContent = response.themes.map(t => t.label).join(' × ');
     $('#answerIntent').textContent = `你需要的是：${response.intentLabel}`;
     $('#questionPath').innerHTML = `<span class="path-node">你的问题</span><span class="path-line"></span><span class="path-node">${response.intentLabel}</span>` + response.themes.map(theme => `<span class="path-line"></span><span class="path-node">${theme.label}</span>`).join('') + `<span class="path-line"></span><span class="path-node">三种视角</span>`;
@@ -355,16 +355,33 @@ async function showAnswer() {
         <span class="mini-cover">${coverMarkup(book, 'small')}</span>
         <span><small class="source-badge">思想转述 / ${String(index + 1).padStart(2,'0')}</small><strong>《${book.zh}》</strong><span class="book-angle">${bookAngle(book, response, index)}</span><em>${book.tags.filter(t => response.themes.some(x => x.id === t)).map(displayTag).join(' · ') || '换一个观察位置'}</em></span>
       </button>`).join('');
+    coverWork.then(() => {
+      if (currentAnswerRecord?.questionText !== text) return;
+      response.books.forEach(book => {
+        const cover = $(`#inspiredBooks [data-book="${book.n}"] .mini-cover`);
+        if (cover) cover.innerHTML = coverMarkup(book, 'small');
+      });
+    });
     $('#answer').hidden = false;
+    $('#noteScene').hidden = false;
+    $('#noteQuestion').textContent = text;
+    $('#noteTitle').textContent = response.title;
+    $('#noteBody').textContent = response.tension;
+    $('#notePrompt').textContent = response.question;
+    $('#noteStepText').textContent = response.action;
+    $('#noteDate').textContent = new Intl.DateTimeFormat('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    $('#noteSerial').textContent = String(hashText(text) % 1000).padStart(3,'0');
+    $('#noteRouteNodes').innerHTML = [`需要：${response.intentLabel}`,...response.themes.map(theme => theme.label),'三本书的视角'].map((label,index,array) => `<span>${label}</span>${index < array.length - 1 ? '<i></i>' : ''}`).join('');
+    $('#noteBooks').innerHTML = response.books.map(book => `<button data-book="${book.n}">《${book.zh}》</button>`).join('');
     $('#answer').classList.remove('reveal');
     void $('#answer').offsetWidth;
     $('#answer').classList.add('reveal');
     button.classList.remove('loading');
     button.querySelector('span:first-child').textContent = '让一百本书回答';
     $('#saveToast').textContent = '';
-    document.body.classList.add('answer-arriving');
-    cinematicScroll($('#answer'), 'A LETTER FROM THE LIBRARY', false);
-    setTimeout(() => document.body.classList.remove('answer-arriving'), 1400);
+    document.body.classList.add('answer-arriving','note-developing');
+    cinematicScroll($('#noteScene'), 'DEVELOPING YOUR QUESTION NOTE', true);
+    setTimeout(() => document.body.classList.remove('answer-arriving','note-developing'), 1800);
   }, 620);
 }
 
@@ -504,12 +521,16 @@ function saveCurrentNote() {
   };
   setNotes([note, ...notes.filter(item => item.question !== note.question)].slice(0, 30));
   $('#saveToast').textContent = '已经放进“我的问题札记”，它只保存在这台设备上。';
+  if ($('#noteToast')) $('#noteToast').textContent = '已经留下。这张札记只保存在你的浏览器里。';
 }
 
 function shareCurrentNote() {
   if (!currentAnswerRecord) return;
   const text = `人类问题图书馆｜我的问题札记\n\n${currentAnswerRecord.questionText}\n\n${currentAnswerRecord.title}\n${currentAnswerRecord.tension}\n\n今天的一步：${currentAnswerRecord.action}\n\n延伸阅读：${currentAnswerRecord.books.map(book => `《${book.zh}》`).join('、')}\nhttps://kevinkaslana093.github.io/human-question-library/`;
-  const done = () => $('#saveToast').textContent = '分享札记已经复制，可以发给你想分享的人。';
+  const done = () => {
+    $('#saveToast').textContent = '分享札记已经复制，可以发给你想分享的人。';
+    if ($('#noteToast')) $('#noteToast').textContent = '已经复制成一段可以分享的文字。';
+  };
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
   else fallbackCopy(text, done);
 }
@@ -582,6 +603,41 @@ document.querySelectorAll('[data-prompt]').forEach(button => button.addEventList
   $('#moodInput').dispatchEvent(new Event('input'));
   $('#moodInput').focus();
 }));
+const LIBRARY_QUESTIONS = [
+  '你最近一次改变看法，是因为事实，还是因为终于愿意承认自己变了？',
+  '如果没有人会评价，你现在最想认真学习的东西是什么？',
+  '你正在坚持的事情里，有多少是热爱，又有多少只是舍不得已经付出的代价？',
+  '哪一种关系让你更像自己，而不是更擅长扮演自己？',
+  '你上一次感到真正自由时，身边有什么，又没有什么？',
+  '假如失败不会被任何人看见，你还会害怕开始吗？',
+  '你对未来的担心，究竟在保护现在的哪一部分？',
+  '有什么愿望，你总是用“以后再说”来温柔地拒绝？',
+  '当你说自己无聊时，你是在缺少刺激，还是缺少连接？',
+  '如果今天只允许完成一件重要的事，它应该是什么？',
+  '你最想被别人理解的地方，自己真的理解了吗？',
+  '此刻的你，需要的是答案、陪伴、行动，还是一次允许？'
+];
+let drawnQuestionIndex = 0;
+$('#drawQuestion').addEventListener('click', () => {
+  const deck = $('#questionDeck');
+  let next = drawnQuestionIndex;
+  while (next === drawnQuestionIndex && LIBRARY_QUESTIONS.length > 1) next = Math.floor(Math.random() * LIBRARY_QUESTIONS.length);
+  drawnQuestionIndex = next;
+  deck.classList.remove('drawing');
+  void deck.offsetWidth;
+  deck.classList.add('drawing');
+  setTimeout(() => {
+    $('#drawnQuestion').textContent = LIBRARY_QUESTIONS[drawnQuestionIndex];
+    $('#drawCount').textContent = String(drawnQuestionIndex + 1).padStart(2,'0');
+  }, 260);
+  setTimeout(() => deck.classList.remove('drawing'), 700);
+});
+$('#answerDrawn').addEventListener('click', () => {
+  $('#moodInput').value = $('#drawnQuestion').textContent;
+  $('#moodInput').dispatchEvent(new Event('input'));
+  cinematicScroll($('#talk'), 'CARRYING THE QUESTION TO THE TERMINAL');
+  setTimeout(() => $('#moodInput').focus(), 800);
+});
 $('#bookSearch').addEventListener('input', () => { activeTheme = ''; renderShelf(true); });
 $('#loadMore').addEventListener('click', () => { visibleLimit += 12; renderShelf(); });
 $('#themeCloud').addEventListener('click', e => {
@@ -621,6 +677,13 @@ $('#bookModal').addEventListener('scroll', event => {
 });
 $('#saveNote').addEventListener('click', saveCurrentNote);
 $('#shareNote').addEventListener('click', shareCurrentNote);
+$('#noteSave').addEventListener('click', saveCurrentNote);
+$('#noteShare').addEventListener('click', shareCurrentNote);
+$('#noteSeeFull').addEventListener('click', () => cinematicScroll($('#answer'), 'OPENING THE FULL THOUGHT ROUTE'));
+$('#noteAgain').addEventListener('click', () => {
+  $('#moodInput').focus();
+  cinematicScroll($('#talk'), 'RETURNING TO THE QUESTION TERMINAL');
+});
 $('#notesOpen').addEventListener('click', openNotes);
 $('#notesClose').addEventListener('click', closeNotes);
 $('#notesBackdrop').addEventListener('click', closeNotes);
@@ -659,7 +722,7 @@ window.addEventListener('popstate', () => {
 });
 $('#againBtn').addEventListener('click', () => {
   $('#moodInput').focus();
-  $('#talk').scrollIntoView({behavior:'smooth'});
+  cinematicScroll($('#talk'), 'RETURNING TO THE QUESTION TERMINAL');
 });
 
 const bgm = $('#bgm');
@@ -670,6 +733,33 @@ const musicSeek = $('#musicSeek');
 const musicVolume = $('#musicVolume');
 
 bgm.volume = Number(musicVolume.value);
+
+const entryGate = $('#entryGate');
+let alreadyEntered = false;
+try { alreadyEntered = sessionStorage.getItem('hql-entered-v7') === 'yes'; } catch {}
+if (alreadyEntered) {
+  entryGate.classList.add('leaving');
+  entryGate.setAttribute('aria-hidden','true');
+} else {
+  document.body.classList.add('entry-open');
+}
+
+function finishEntry(withSound) {
+  if (withSound) {
+    musicPlayer.classList.add('visible');
+    bgm.volume = Number(musicVolume.value);
+    bgm.play().then(syncMusicUI).catch(syncMusicUI);
+  }
+  try { sessionStorage.setItem('hql-entered-v7','yes'); } catch {}
+  entryGate.classList.add('leaving');
+  entryGate.style.pointerEvents = 'none';
+  entryGate.setAttribute('aria-hidden','true');
+  document.body.classList.remove('entry-open');
+  setTimeout(() => { entryGate.hidden = true; }, 900);
+}
+
+$('#enterWithSound').addEventListener('click', () => finishEntry(true));
+$('#enterSilent').addEventListener('click', () => finishEntry(false));
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return '0:00';
@@ -792,7 +882,7 @@ document.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener(
   const target = document.querySelector(link.getAttribute('href'));
   if (!target) return;
   event.preventDefault();
-  const labels = {talk:'ENTER QUESTION TERMINAL',themes:'ENTER THE EXPERIENCE TREE',shelf:'ENTER THE BOOK ORBIT',top:'RETURN TO THE BEGINNING'};
+  const labels = {talk:'ENTER QUESTION TERMINAL',noteScene:'DEVELOPING YOUR QUESTION NOTE',discover:'DRAW A QUESTION',themes:'ENTER THE EXPERIENCE TREE',shelf:'ENTER THE BOOK ORBIT',method:'HOW THE LIBRARY THINKS',top:'RETURN TO THE BEGINNING'};
   cinematicScroll(target, labels[target.id] || 'MOVING THROUGH THE LIBRARY');
 }));
 
@@ -801,6 +891,7 @@ cameraSections.forEach(section => section.classList.add('camera-section'));
 let lastScrollY = scrollY;
 let scrollEnergy = 0;
 let scrollFrame = 0;
+let scrollBurstTimer = 0;
 
 function updateCameraDepth() {
   scrollFrame = 0;
@@ -809,7 +900,18 @@ function updateCameraDepth() {
   const progress = Math.min(1, Math.max(0, scrollY / maximum));
   document.documentElement.style.setProperty('--page-progress', `${progress * 100}%`);
   $('#motionMeter').style.height = `${progress * 100}%`;
-  scrollEnergy = Math.min(55, Math.abs(scrollY - lastScrollY) * .9 + scrollEnergy * .58);
+  const scrollDelta = scrollY - lastScrollY;
+  scrollEnergy = Math.min(55, Math.abs(scrollDelta) * .9 + scrollEnergy * .58);
+  document.documentElement.style.setProperty('--scroll-energy', (scrollEnergy / 55).toFixed(3));
+  document.documentElement.style.setProperty('--scroll-direction', scrollDelta >= 0 ? '1' : '-1');
+  if (scrollEnergy > 10) {
+    document.body.classList.add('scroll-burst');
+    clearTimeout(scrollBurstTimer);
+    scrollBurstTimer = setTimeout(() => {
+      document.body.classList.remove('scroll-burst');
+      document.documentElement.style.setProperty('--scroll-energy','0');
+    }, 210);
+  }
   lastScrollY = scrollY;
   cameraSections.forEach(section => {
     const rect = section.getBoundingClientRect();
@@ -845,23 +947,41 @@ if (!reduceMotion) {
     canvas.style.width = `${fieldWidth}px`;
     canvas.style.height = `${fieldHeight}px`;
     context.setTransform(ratio,0,0,ratio,0,0);
-    const strandCount = fieldWidth < 700 ? 7 : 13;
+    const strandCount = fieldWidth < 700 ? 9 : 18;
     strands = Array.from({length:strandCount}, (_, index) => ({
       x:(index + .5) / strandCount,
       phase:Math.random() * Math.PI * 2,
       speed:.00012 + Math.random() * .00018,
-      width:.35 + Math.random() * 1.05,
-      alpha:.025 + Math.random() * .07
+      width:.55 + Math.random() * 1.65,
+      alpha:.075 + Math.random() * .12
     }));
-    const particleCount = fieldWidth < 700 ? 12 : 24;
+    const particleCount = fieldWidth < 700 ? 18 : 38;
     particles = Array.from({length:particleCount}, () => ({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*.00008,vy:(Math.random()-.5)*.00008,phase:Math.random()*6.28}));
   }
 
   function drawField(time) {
     if (!fieldVisible) { requestAnimationFrame(drawField); return; }
     context.clearRect(0,0,fieldWidth,fieldHeight);
+    context.globalCompositeOperation = 'screen';
     const energy = Math.min(1, scrollEnergy / 35);
     scrollEnergy *= .94;
+    const pointerGlow = context.createRadialGradient(fieldPointerX*fieldWidth,fieldPointerY*fieldHeight,0,fieldPointerX*fieldWidth,fieldPointerY*fieldHeight,Math.max(fieldWidth,fieldHeight)*.34);
+    pointerGlow.addColorStop(0,`rgba(239,82,59,${.10 + energy*.14})`);
+    pointerGlow.addColorStop(.35,`rgba(185,213,188,${.045 + energy*.05})`);
+    pointerGlow.addColorStop(1,'rgba(0,0,0,0)');
+    context.fillStyle = pointerGlow;
+    context.fillRect(0,0,fieldWidth,fieldHeight);
+    for (let ribbon=0;ribbon<3;ribbon++) {
+      const center = fieldHeight * (.22 + ribbon * .29) + Math.sin(time*.00022 + ribbon*1.7)*70;
+      const band = context.createLinearGradient(0,center-100,0,center+100);
+      band.addColorStop(0,'rgba(0,0,0,0)');
+      band.addColorStop(.5,`rgba(${ribbon===1?'239,82,59':'210,228,214'},${.035 + energy*.12})`);
+      band.addColorStop(1,'rgba(0,0,0,0)');
+      context.beginPath();
+      context.moveTo(-40,center);
+      for(let x=0;x<=fieldWidth+60;x+=80) context.lineTo(x,center+Math.sin(x*.006+time*.0005+ribbon)*45+energy*Math.sin(x*.02)*28);
+      context.strokeStyle=band; context.lineWidth=70+energy*80; context.stroke();
+    }
     strands.forEach((strand,index) => {
       const pulse = .5 + .5 * Math.sin(time * strand.speed + strand.phase);
       const baseX = strand.x * fieldWidth + (fieldPointerX - .5) * (18 + index);
@@ -895,12 +1015,12 @@ if (!reduceMotion) {
         const distance = Math.hypot(ax-bx,ay-by);
         if (distance < 180) {
           context.beginPath(); context.moveTo(ax,ay); context.lineTo(bx,by);
-          context.strokeStyle = `rgba(196,206,195,${(1-distance/180)*(.035+energy*.045)})`;
-          context.lineWidth = .5; context.stroke();
+          context.strokeStyle = `rgba(196,216,199,${(1-distance/180)*(.10+energy*.18)})`;
+          context.lineWidth = .7 + energy*.8; context.stroke();
         }
       }
       context.beginPath(); context.arc(ax,ay,1.1+energy,0,Math.PI*2);
-      context.fillStyle = `rgba(239,82,59,${.11 + .08*Math.sin(time*.001+a.phase)})`; context.fill();
+      context.fillStyle = `rgba(239,105,80,${.34 + .18*Math.sin(time*.001+a.phase) + energy*.22})`; context.shadowBlur=10+energy*18; context.shadowColor='rgba(239,82,59,.65)'; context.fill(); context.shadowBlur=0;
     }
     requestAnimationFrame(drawField);
   }
@@ -918,8 +1038,8 @@ if (!reduceMotion) {
 }
 
 if (matchMedia('(pointer:fine)').matches && !reduceMotion) {
-  const tiltSelector = '.book-card,.mini-book,.answer-insight-grid article,.terminal-card';
-  const magneticSelector = '.primary-action,.experience-root,.modal-continue,.answer-actions button';
+  const tiltSelector = '.book-card,.mini-book,.answer-insight-grid article,.terminal-card,.question-note-frame,.question-deck';
+  const magneticSelector = '.primary-action,.experience-root,.modal-continue,.answer-actions button,.note-scene-actions button,.entry-sound';
   document.addEventListener('pointermove', event => {
     const tilt = event.target.closest(tiltSelector);
     if (tilt) {
