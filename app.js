@@ -10,6 +10,7 @@ let visibleLimit = 12;
 let activeTheme = '';
 let selectedIntent = 'auto';
 let currentAnswerRecord = null;
+let questionThread = [];
 const COVER_SEED = {
   1:{coverId:13129044,key:'/works/OL2950942W'}, 2:{coverId:12725620,key:'/works/OL74128W'},
   3:{coverId:8179733,key:'/works/OL17872278W'}, 11:{coverId:13316390,key:'/works/OL27955361W'},
@@ -282,8 +283,9 @@ function bookAngle(book, response, index) {
   return frames[index];
 }
 
-function buildResponse(text) {
-  if (CRISIS_WORDS.some(word => text.includes(word))) {
+function buildResponse(text, previousQuestion = '') {
+  const analysisText = previousQuestion ? `${previousQuestion} ${text}` : text;
+  if (CRISIS_WORDS.some(word => analysisText.includes(word))) {
     const safetyTheme = themeById('hope');
     return {
       themes:[safetyTheme],
@@ -293,18 +295,18 @@ function buildResponse(text) {
       tension:'现在最重要的不是解释问题，而是让你从独自承受转向有人在场、有人知道、有人能够提供现实帮助。',
       question:'此刻有哪一个人，是你可以马上拨通电话或发出求助消息的？',
       action:'现在就把这句话发给一个可信的人：“我现在不安全，需要你来陪我，并帮我联系专业支持。”',
-      books:recommendBooks([safetyTheme, themeById('meaning')], text)
+      books:recommendBooks([safetyTheme, themeById('meaning')], analysisText)
     };
   }
 
-  let themes = scoreThemes(text);
-  const countIntent = /(多少本|几本书|书多|馆藏|有多少)/.test(text);
+  let themes = scoreThemes(analysisText);
+  const countIntent = /(多少本|几本书|书多|馆藏|有多少)/.test(analysisText);
   if (countIntent && !themes.some(t => t.id === 'curiosity')) themes.unshift(themeById('curiosity'));
   if (!themes.length) themes = [themeById('curiosity'), themeById('meaning')];
   themes = themes.slice(0, 3);
   const primary = themes[0];
-  const seed = hashText(text);
-  const intent = detectIntent(text);
+  const seed = hashText(analysisText);
+  const intent = detectIntent(analysisText);
   const intentInfo = INTENTS[intent];
   const title = countIntent
     ? `你怎么这么好奇呢？这里现在刚好有 ${BOOKS.length} 本书。`
@@ -318,29 +320,42 @@ function buildResponse(text) {
     themes,
     intent, intentLabel:intentInfo.label,
     title,
-    body:`你写下的是：“${echo}” ${opener}${countIntent ? ` 这一百本书横跨十个知识区域，但数量并不是最重要的。` : ''}${blend}`,
+    body:`${previousQuestion ? '沿着刚才的问题，你又往下问了一层。' : ''}你写下的是：“${echo}” ${opener}${countIntent ? ` 这一百本书横跨十个知识区域，但数量并不是最重要的。` : ''}${blend}`,
     tension:buildTension(intent, themes),
     question:buildNextQuestion(intent, themes),
     action:ACTIONS[primary.domain],
-    books:recommendBooks(themes, text),
+    books:recommendBooks(themes, analysisText),
   };
 }
 
-async function showAnswer() {
+function renderQuestionThread() {
+  const thread = $('#followupThread');
+  if (!thread) return;
+  thread.innerHTML = questionThread.map((question,index) => `<div class="thread-node"><small>${String(index + 1).padStart(2,'0')} / ${index ? '继续追问' : '最初的问题'}</small>${escapeHTML(question)}</div>`).join('');
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function showAnswer(source) {
   const input = $('#moodInput');
-  const text = input.value.trim();
+  const isFollowup = typeof source === 'string';
+  const text = (isFollowup ? source : input.value).trim();
   if (!text) {
-    input.focus();
-    input.placeholder = '哪怕只写“为什么”也可以。';
-    input.closest('.input-card').animate([{transform:'translateX(-5px) rotate(.5deg)'},{transform:'translateX(5px) rotate(.5deg)'},{transform:'translateX(0) rotate(.5deg)'}], {duration:260});
+    const targetInput = isFollowup ? $('#followupInput') : input;
+    targetInput.focus();
+    targetInput.placeholder = '哪怕只写“为什么”也可以。';
+    targetInput.closest(isFollowup ? '.followup-input' : '.input-card')?.animate([{transform:'translateX(-5px)'},{transform:'translateX(5px)'},{transform:'translateX(0)'}], {duration:260});
     return;
   }
-  const button = $('#submitBtn');
+  const previousQuestion = isFollowup ? currentAnswerRecord?.questionText || '' : '';
+  if (isFollowup) questionThread.push(text);
+  else questionThread = [text];
+  const button = isFollowup ? $('#followupSubmit') : $('#submitBtn');
   button.classList.add('loading');
-  button.querySelector('span:first-child').textContent = '正在穿过一百本书…';
+  if (isFollowup) button.firstChild.textContent = '正在沿路径继续… ';
+  else button.querySelector('span:first-child').textContent = '正在穿过一百本书…';
   setTimeout(async () => {
-    const response = buildResponse(text);
-    currentAnswerRecord = {...response, questionText:text, createdAt:new Date().toISOString()};
+    const response = buildResponse(text, previousQuestion);
+    currentAnswerRecord = {...response, questionText:text, thread:[...questionThread], createdAt:new Date().toISOString()};
     const coverWork = Promise.all(response.books.map(async book => { await resolveOneCover(book); await preloadCover(book, 'small'); }));
     $('#moodTag').textContent = response.themes.map(t => t.label).join(' × ');
     $('#answerIntent').textContent = `你需要的是：${response.intentLabel}`;
@@ -372,12 +387,17 @@ async function showAnswer() {
     $('#noteDate').textContent = new Intl.DateTimeFormat('zh-CN', {year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
     $('#noteSerial').textContent = String(hashText(text) % 1000).padStart(3,'0');
     $('#noteRouteNodes').innerHTML = [`需要：${response.intentLabel}`,...response.themes.map(theme => theme.label),'三本书的视角'].map((label,index,array) => `<span>${label}</span>${index < array.length - 1 ? '<i></i>' : ''}`).join('');
+    renderQuestionThread();
     $('#noteBooks').innerHTML = response.books.map(book => `<button data-book="${book.n}">《${book.zh}》</button>`).join('');
     $('#answer').classList.remove('reveal');
     void $('#answer').offsetWidth;
     $('#answer').classList.add('reveal');
     button.classList.remove('loading');
-    button.querySelector('span:first-child').textContent = '让一百本书回答';
+    if (isFollowup) {
+      button.firstChild.textContent = '继续向下问 ';
+      $('#followupInput').value = '';
+      $('#followupCount').textContent = '0 / 300';
+    } else button.querySelector('span:first-child').textContent = '让一百本书回答';
     $('#saveToast').textContent = '';
     document.body.classList.add('answer-arriving','note-developing');
     cinematicScroll($('#noteScene'), 'DEVELOPING YOUR QUESTION NOTE', true);
@@ -503,6 +523,7 @@ function renderNotes() {
       <div class="saved-note-actions"><button data-note-open="${note.id}">继续这个问题</button><button data-note-delete="${note.id}" aria-label="删除这条札记">删除</button></div>
     </article>`).join('') : `<div class="notes-empty"><span>○</span><h3>还没有留下问题</h3><p>当一封回信值得以后再看，点击“保存这次问题”。</p></div>`;
   $('#notesClear').hidden = !notes.length;
+  renderTrail();
 }
 
 function saveCurrentNote() {
@@ -517,6 +538,7 @@ function saveCurrentNote() {
     themes:currentAnswerRecord.themes.map(theme => theme.label),
     action:currentAnswerRecord.action,
     books:currentAnswerRecord.books.map(book => book.n),
+    thread:currentAnswerRecord.thread || [currentAnswerRecord.questionText],
     createdAt:new Date().toISOString()
   };
   setNotes([note, ...notes.filter(item => item.question !== note.question)].slice(0, 30));
@@ -540,6 +562,84 @@ function fallbackCopy(text, done) {
   input.value = text;
   input.style.position = 'fixed'; input.style.opacity = '0';
   document.body.appendChild(input); input.select(); document.execCommand('copy'); input.remove(); done();
+}
+
+function renderTrail() {
+  if (!$('#trailPlanets')) return;
+  const notes = getNotes();
+  const counts = new Map();
+  notes.forEach(note => (note.themes || []).forEach(theme => counts.set(theme,(counts.get(theme) || 0) + 1)));
+  const ranked = [...counts.entries()].sort((a,b) => b[1] - a[1]).slice(0,8);
+  const maximum = ranked[0]?.[1] || 1;
+  const positions = [[50,13],[77,22],[89,49],[77,77],[50,87],[23,77],[11,49],[23,22]];
+  $('#trailTotal').textContent = notes.length;
+  $('#trailPlanets').innerHTML = ranked.map(([theme,count],index) => {
+    const [x,y] = positions[index];
+    const size = 58 + Math.round(count / maximum * 38);
+    return `<div class="trail-planet ${index===0?'dominant':''}" style="--x:${x}%;--y:${y}%;--size:${size}px;--delay:${index*-.43}s"><strong>${escapeHTML(theme)}</strong><small>${count} 次</small></div>`;
+  }).join('');
+  if (ranked.length) {
+    const [first,firstCount] = ranked[0];
+    const second = ranked[1]?.[0];
+    $('#trailTitle').textContent = second ? `你最近总在「${first}」与「${second}」之间往返。` : `「${first}」正在成为你反复靠近的主题。`;
+    $('#trailInsight').textContent = `它出现了 ${firstCount} 次。这不是对你的定义，只是提醒：有些问题会换一种说法回来，而你每次回来时都已经不同。`;
+  } else {
+    $('#trailTitle').textContent = '你的星图还在等待第一个问题。';
+    $('#trailInsight').textContent = '保存一张札记后，这里会显示你反复靠近的主题，而不是给你贴上固定标签。';
+  }
+  $('#trailBars').innerHTML = ranked.slice(0,5).map(([theme,count]) => `<div class="trail-bar"><span>${escapeHTML(theme)}</span><i style="--ratio:${count/maximum}"></i><b>${count}</b></div>`).join('');
+  $('#trailTimeline').innerHTML = notes.length ? notes.slice(0,4).map(note => `<button class="trail-memory" data-trail-question="${escapeHTML(note.question)}"><small>${new Date(note.createdAt).toLocaleDateString('zh-CN')} · ${escapeHTML(note.intentLabel)}</small><p>${escapeHTML(note.question)}</p><span>${(note.themes || []).map(escapeHTML).join(' · ')}</span></button>`).join('') : '<div class="trail-empty">当你留下一张札记，第一颗星会在这里亮起。</div>';
+}
+
+function wrapCanvasText(context, text, x, y, maxWidth, lineHeight, maxLines) {
+  const chars = [...String(text || '')];
+  const lines = [];
+  let line = '';
+  chars.forEach(char => {
+    const test = line + char;
+    if (context.measureText(test).width > maxWidth && line) { lines.push(line); line = char; }
+    else line = test;
+  });
+  if (line) lines.push(line);
+  const visible = lines.slice(0,maxLines);
+  if (lines.length > maxLines) visible[maxLines-1] = `${visible[maxLines-1].slice(0,-1)}…`;
+  visible.forEach((value,index) => context.fillText(value,x,y+index*lineHeight));
+  return y + visible.length * lineHeight;
+}
+
+async function generateShareImage() {
+  if (!currentAnswerRecord) return;
+  document.body.classList.add('exporting-note');
+  $('#noteToast').textContent = '正在把这张札记定影…';
+  try { await document.fonts?.ready; } catch {}
+  const canvas = document.createElement('canvas');
+  canvas.width = 1080; canvas.height = 1350;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#eee9df'; context.fillRect(0,0,1080,1350);
+  context.strokeStyle = 'rgba(32,38,32,.18)'; context.lineWidth = 2; context.strokeRect(38,38,1004,1274);
+  context.fillStyle = '#20251f'; context.font = '500 22px "Noto Serif SC",serif'; context.fillText('人类问题图书馆',82,102);
+  context.textAlign = 'right'; context.fillStyle = '#9a4b38'; context.font = '18px sans-serif'; context.fillText(`QUESTION NOTE / ${String(hashText(currentAnswerRecord.questionText)%1000).padStart(3,'0')}`,998,102); context.textAlign='left';
+  context.fillStyle = '#a64732'; context.fillRect(82,148,88,4);
+  context.fillStyle = '#777c74'; context.font = '18px "Noto Serif SC",serif'; context.fillText('我带来的问题',82,206);
+  context.fillStyle = '#252a24'; context.font = '500 34px "Noto Serif SC",serif'; let y = wrapCanvasText(context,currentAnswerRecord.questionText,82,258,916,52,3);
+  y += 46; context.fillStyle='#a64732'; context.font='18px sans-serif'; context.fillText('A LETTER FROM ONE HUNDRED BOOKS',82,y); y += 64;
+  context.fillStyle='#20251f'; context.font='500 56px "Noto Serif SC",serif'; y=wrapCanvasText(context,currentAnswerRecord.title,82,y,916,78,4)+34;
+  context.fillStyle='#60665e'; context.font='24px "Noto Serif SC",serif'; y=wrapCanvasText(context,currentAnswerRecord.tension,82,y,916,42,5)+36;
+  context.strokeStyle='rgba(32,38,32,.16)'; context.beginPath();context.moveTo(82,y);context.lineTo(998,y);context.stroke(); y+=48;
+  context.fillStyle='#888d85';context.font='17px sans-serif';context.fillText('留给明天的一个问题',82,y); y+=42;
+  context.fillStyle='#252a24';context.font='25px "Noto Serif SC",serif';y=wrapCanvasText(context,currentAnswerRecord.question,82,y,916,42,3)+36;
+  context.fillStyle='#888d85';context.font='17px sans-serif';context.fillText('今天的一小步',82,y);y+=42;
+  context.fillStyle='#c04e36';context.font='25px "Noto Serif SC",serif';wrapCanvasText(context,currentAnswerRecord.action,82,y,916,42,3);
+  context.fillStyle='#747970';context.font='18px "Noto Serif SC",serif';context.fillText(`思想来源：${currentAnswerRecord.books.map(book=>`《${book.zh}》`).join(' · ')}`,82,1250);
+  context.textAlign='right';context.font='16px sans-serif';context.fillText('human-question-library',998,1292);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve,'image/png'));
+  if (!blob) throw new Error('image export failed');
+  window.__lastExportBlobSize = blob.size;
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href=url; link.download=`人类问题札记-${new Date().toISOString().slice(0,10)}.png`; link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  $('#noteToast').textContent = '分享图片已经生成，可以把它带走了。';
+  setTimeout(()=>document.body.classList.remove('exporting-note'),800);
 }
 
 function openNotes() {
@@ -679,10 +779,34 @@ $('#saveNote').addEventListener('click', saveCurrentNote);
 $('#shareNote').addEventListener('click', shareCurrentNote);
 $('#noteSave').addEventListener('click', saveCurrentNote);
 $('#noteShare').addEventListener('click', shareCurrentNote);
+$('#noteImage').addEventListener('click', generateShareImage);
 $('#noteSeeFull').addEventListener('click', () => cinematicScroll($('#answer'), 'OPENING THE FULL THOUGHT ROUTE'));
 $('#noteAgain').addEventListener('click', () => {
   $('#moodInput').focus();
   cinematicScroll($('#talk'), 'RETURNING TO THE QUESTION TERMINAL');
+});
+$('#followupInput').addEventListener('input', event => $('#followupCount').textContent = `${event.target.value.length} / 300`);
+$('#followupInput').addEventListener('keydown', event => {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') showAnswer(event.currentTarget.value);
+});
+$('#followupSubmit').addEventListener('click', () => showAnswer($('#followupInput').value));
+$('#trailOpenNotes').addEventListener('click', openNotes);
+$('#trailAskAgain').addEventListener('click', () => {
+  const note = getNotes()[0];
+  if (note) {
+    $('#moodInput').value = note.question;
+    $('#moodInput').dispatchEvent(new Event('input'));
+  }
+  cinematicScroll($('#talk'), note ? 'RETURNING TO AN OLD QUESTION' : 'BEGINNING YOUR FIRST QUESTION');
+  setTimeout(() => $('#moodInput').focus(),800);
+});
+$('#trailTimeline').addEventListener('click', event => {
+  const memory = event.target.closest('[data-trail-question]');
+  if (!memory) return;
+  $('#moodInput').value = memory.dataset.trailQuestion;
+  $('#moodInput').dispatchEvent(new Event('input'));
+  cinematicScroll($('#talk'), 'REOPENING A QUESTION');
+  setTimeout(() => $('#moodInput').focus(),800);
 });
 $('#notesOpen').addEventListener('click', openNotes);
 $('#notesClose').addEventListener('click', closeNotes);
@@ -882,7 +1006,7 @@ document.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener(
   const target = document.querySelector(link.getAttribute('href'));
   if (!target) return;
   event.preventDefault();
-  const labels = {talk:'ENTER QUESTION TERMINAL',noteScene:'DEVELOPING YOUR QUESTION NOTE',discover:'DRAW A QUESTION',themes:'ENTER THE EXPERIENCE TREE',shelf:'ENTER THE BOOK ORBIT',method:'HOW THE LIBRARY THINKS',top:'RETURN TO THE BEGINNING'};
+  const labels = {talk:'ENTER QUESTION TERMINAL',noteScene:'DEVELOPING YOUR QUESTION NOTE',discover:'DRAW A QUESTION',themes:'ENTER THE EXPERIENCE TREE',shelf:'ENTER THE BOOK ORBIT',method:'HOW THE LIBRARY THINKS',trail:'ENTER YOUR QUESTION ORBIT',top:'RETURN TO THE BEGINNING'};
   cinematicScroll(target, labels[target.id] || 'MOVING THROUGH THE LIBRARY');
 }));
 
