@@ -35,6 +35,7 @@
       <a href="#talk">问一个问题</a>
       <a href="#themes">百词索引</a>
       <a href="#shelf">百本书架</a>
+      <button class="notes-open" id="notesOpen" aria-label="打开我的问题札记">我的札记 <span id="notesCount">0</span></button>
       <button class="sound" id="soundToggle" aria-label="播放背景音乐"><span>♪</span><span id="soundLabel">播放音乐</span></button>
     </nav>
   </header>
@@ -79,6 +80,17 @@
           <div class="terminal-top"><span>INPUT / NATURAL LANGUAGE</span><span class="terminal-live"><i></i> READY</span></div>
           <label for="moodInput">写下你真正想问的那句话</label>
           <textarea id="moodInput" maxlength="500" placeholder="比如：人为什么会好奇？我怎样和别人一起创造点东西？"></textarea>
+          <fieldset class="intent-picker">
+            <legend>此刻，你更希望得到什么？</legend>
+            <div id="intentPicker">
+              <button type="button" class="active" data-intent="auto">让图书馆判断</button>
+              <button type="button" data-intent="comfort">先接住我</button>
+              <button type="button" data-intent="understand">帮我想明白</button>
+              <button type="button" data-intent="decide">陪我做决定</button>
+              <button type="button" data-intent="action">给我下一步</button>
+              <button type="button" data-intent="explore">只是随便探索</button>
+            </div>
+          </fieldset>
           <div class="input-meta">
             <span id="charCount">0 / 500</span>
             <span class="privacy">只在你的浏览器里发生</span>
@@ -92,34 +104,52 @@
 
     <section class="answer-section" id="answer" hidden aria-live="polite">
       <div class="answer-topline">
-        <span>给这个问题的回信</span><span id="moodTag">正在辨认主题</span>
+        <span>给这个问题的回信</span><span id="moodTag">正在辨认主题</span><span class="answer-intent" id="answerIntent"></span>
       </div>
       <div class="question-path" id="questionPath"></div>
-      <div class="answer-body">
-        <div class="answer-number">“</div>
-        <div>
-          <h2 id="answerTitle"></h2>
-          <p id="answerText"></p>
-          <div class="small-step" id="smallStep"></div>
+      <div class="answer-letter">
+        <div class="answer-body">
+          <div class="answer-number">“</div>
+          <div>
+            <span class="answer-label">01 / 我听见的</span>
+            <h2 id="answerTitle"></h2>
+            <p id="answerText"></p>
+          </div>
         </div>
+        <div class="answer-insight-grid">
+          <article><span>02 / 真正的拉扯</span><p id="answerTension"></p></article>
+          <article><span>03 / 继续问自己</span><p id="answerQuestion"></p></article>
+        </div>
+        <div class="small-step" id="smallStep"></div>
       </div>
       <div class="inspired-wrap">
-        <p class="inspired-label">这段回答，从这些书中长出来</p>
+        <div class="inspired-head"><p class="inspired-label">04 / 三本书，三个观察位置</p><span>以下为策展思想转述，不冒充书中原句</span></div>
         <div class="inspired-books" id="inspiredBooks"></div>
       </div>
-      <button class="again-btn" id="againBtn">再问一个问题 ↻</button>
+      <div class="answer-actions">
+        <button id="saveNote">保存这次问题 <span>＋</span></button>
+        <button id="shareNote">复制分享札记 <span>↗</span></button>
+        <button class="again-btn" id="againBtn">再问一个问题 <span>↻</span></button>
+      </div>
+      <div class="answer-feedback"><span>这封回信接住你了吗？</span><button data-feedback="yes">有一点</button><button data-feedback="no">还没有</button></div>
+      <p class="save-toast" id="saveToast" role="status"></p>
     </section>
 
     <section class="themes-section dark-stage" id="themes">
       <div class="themes-head">
         <div>
-          <div class="section-index">02 / 百词索引</div>
-          <h2>人类不只有<br>几种情绪。</h2>
+          <div class="section-index">02 / 人类经验树</div>
+          <h2>一个问题，<br>会长出很多枝芽。</h2>
         </div>
-        <div class="theme-copy"><strong>100</strong><span>种入口</span><p>从好奇到共创，从身体到文明。点击一个词，看看哪些书在谈论它。</p></div>
+        <div class="theme-copy"><strong>6</strong><span>条主枝</span><p>自己、他人、身体、世界、时间与未知。点击一条主枝，让相关经验从节点中生长出来。</p></div>
       </div>
-      <div class="domain-tabs" id="domainTabs"></div>
-      <div class="theme-cloud" id="themeCloud"></div>
+      <div class="experience-map" id="experienceMap">
+        <svg class="neural-lines" id="neuralLines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <button class="experience-core" id="experienceCore"><span>100</span><small>HUMAN<br>EXPERIENCES</small></button>
+        <div class="experience-roots" id="experienceRoots"></div>
+        <div class="branch-readout" id="branchReadout"></div>
+      </div>
+      <div class="theme-cloud experience-leaves" id="themeCloud"></div>
     </section>
 
     <section class="shelf-section light-stage" id="shelf">
@@ -148,6 +178,16 @@
     <span>人类问题图书馆 · THE HUMAN LIBRARY</span>
     <span>100 本策展书目 · 书籍资料来自 Open Library</span>
   </footer>
+
+  <aside class="notes-drawer" id="notesDrawer" hidden aria-label="我的问题札记">
+    <div class="notes-backdrop" id="notesBackdrop"></div>
+    <div class="notes-panel">
+      <div class="notes-head"><div><small>PERSONAL QUESTION LOG</small><h2>我的问题札记</h2></div><button id="notesClose" aria-label="关闭札记">×</button></div>
+      <p class="notes-intro">这些内容只保存在当前浏览器里。它不是档案，而是一条你曾经认真想过的路。</p>
+      <div class="notes-list" id="notesList"></div>
+      <button class="notes-clear" id="notesClear">清空全部札记</button>
+    </div>
+  </aside>
 
   <aside class="music-player" id="musicPlayer" aria-label="背景音乐播放器">
     <div class="music-disc" aria-hidden="true"><span>♪</span></div>
@@ -195,6 +235,7 @@
         <p id="modalIntro"></p>
         <h3><span>02</span> 它与哪些人类问题相连</h3>
         <ul id="modalIdeas"></ul>
+        <div class="source-disclosure"><span>馆员札记 / CURATOR NOTE</span><p>下面是依据主题写成的策展转述，并非书中原句。原书资料请通过馆藏链接核对。</p></div>
         <blockquote id="modalQuote"></blockquote>
         <div class="modal-actions">
           <a id="modalSource" target="_blank" rel="noreferrer">查看馆藏资料 <span>↗</span></a>
