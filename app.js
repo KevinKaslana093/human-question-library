@@ -161,7 +161,14 @@ function renderThemes(initialBranch = 'self') {
 
   roots.addEventListener('click', event => {
     const root = event.target.closest('[data-branch]');
-    if (root) draw(root.dataset.branch);
+    if (root) {
+      const map = $('#experienceMap');
+      map.classList.remove('refocusing');
+      void map.offsetWidth;
+      map.classList.add('refocusing');
+      setTimeout(() => map.classList.remove('refocusing'), 760);
+      draw(root.dataset.branch);
+    }
   });
   $('#experienceCore').addEventListener('click', () => draw('all'));
   draw(initialBranch);
@@ -230,8 +237,8 @@ function recommendBooks(themes, text, limit = 3) {
 function detectIntent(text) {
   if (selectedIntent !== 'auto') return selectedIntent;
   const rules = [
+    ['decide', /(要不要|该不该|选择哪|选哪个|做决定|两难|还是.{0,12}(好|更好|合适))/],
     ['comfort', /(我.{0,10}(难过|痛苦|委屈|孤独|崩溃|被抛弃|失去|害怕|焦虑|撑不住|伤心|想哭|很糟)|朋友.{0,8}(离开|抛弃)|没人.{0,6}(理解|陪|在乎))/],
-    ['decide', /(要不要|该不该|选择|选哪个|还是|决定|纠结|怎么办)/],
     ['action', /(如何|怎么做|开始|行动|改变|完成|坚持|计划|拖延)/],
     ['understand', /(为什么|怎么回事|本质|原因|理解|想明白|意味着什么|到底)/],
     ['explore', /(无聊|随便|好奇|看看|有意思|不知道问什么)/]
@@ -355,15 +362,19 @@ async function showAnswer() {
     button.classList.remove('loading');
     button.querySelector('span:first-child').textContent = '让一百本书回答';
     $('#saveToast').textContent = '';
-    $('#answer').scrollIntoView({behavior:'smooth', block:'start'});
+    document.body.classList.add('answer-arriving');
+    cinematicScroll($('#answer'), 'A LETTER FROM THE LIBRARY', false);
+    setTimeout(() => document.body.classList.remove('answer-arriving'), 1400);
   }, 620);
 }
 
 let modalHistoryActive = false;
 let activeModalBookNumber = 1;
+let lastBookSourceElement = null;
 
 async function openBook(n, sourceElement) {
   const book = bookByN(n);
+  lastBookSourceElement = sourceElement || null;
   activeModalBookNumber = Number(book.n);
   await resolveOneCover(book);
   await preloadCover(book);
@@ -399,6 +410,7 @@ async function openBook(n, sourceElement) {
     $('#bookModal').scrollTop = 0;
     $('#modalProgress').style.width = '0%';
     $('#bookModal').hidden = false;
+    document.body.classList.add('book-focus');
     document.body.style.overflow = 'hidden';
     if (!modalHistoryActive) {
       history.pushState({ humanLibraryBook: book.n }, '', `#book-${String(book.n).padStart(3,'0')}`);
@@ -420,14 +432,35 @@ async function openBook(n, sourceElement) {
 }
 
 function closeBook(fromHistory = false) {
-  $('#bookModal').hidden = true;
-  $('#bookModal').scrollTop = 0;
-  document.body.style.overflow = '';
-  if (modalHistoryActive && !fromHistory) {
-    modalHistoryActive = false;
-    history.back();
-  } else if (fromHistory) {
-    modalHistoryActive = false;
+  if ($('#bookModal').hidden) return;
+  const modalMedia = $('.modal-cover-shell img');
+  const sourceMedia = lastBookSourceElement?.querySelector('img');
+  const transitionName = `book-cover-return-${activeModalBookNumber}`;
+  const hideModal = () => {
+    if (modalMedia) modalMedia.style.viewTransitionName = '';
+    if (sourceMedia) sourceMedia.style.viewTransitionName = transitionName;
+    $('#bookModal').hidden = true;
+    $('#bookModal').scrollTop = 0;
+    document.body.classList.remove('book-focus');
+    document.body.style.overflow = '';
+    if (modalHistoryActive && !fromHistory) {
+      modalHistoryActive = false;
+      history.back();
+    } else if (fromHistory) {
+      modalHistoryActive = false;
+    }
+  };
+  if (document.startViewTransition && modalMedia && sourceMedia) {
+    modalMedia.style.viewTransitionName = transitionName;
+    const transition = document.startViewTransition(hideModal);
+    transition.finished.finally(() => {
+      sourceMedia.style.viewTransitionName = '';
+      lastBookSourceElement = null;
+    });
+  } else {
+    hideModal();
+    if (sourceMedia) sourceMedia.style.viewTransitionName = '';
+    lastBookSourceElement = null;
   }
 }
 
@@ -721,4 +754,199 @@ if (matchMedia('(pointer:fine)').matches) {
     cursor.style.top = `${e.clientY}px`;
   });
   document.addEventListener('mouseover', e => cursor.classList.toggle('hover', Boolean(e.target.closest('a,button,input,textarea'))));
+}
+
+// V6: one motion grammar for navigation, depth, light, and direct manipulation.
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cameraTransition = $('#cameraTransition');
+let cameraBusy = false;
+
+function cinematicScroll(target, label = 'MOVING THROUGH THE LIBRARY', updateHistory = true) {
+  if (!target) return;
+  if (reduceMotion) {
+    target.scrollIntoView({behavior:'auto', block:'start'});
+    if (updateHistory && target.id) history.pushState(null, '', `#${target.id}`);
+    return;
+  }
+  if (cameraBusy) return;
+  cameraBusy = true;
+  cameraTransition.querySelector('i').textContent = label;
+  document.body.style.setProperty('--camera-origin', `${innerHeight * .5}px`);
+  document.body.classList.add('camera-moving');
+  setTimeout(() => {
+    const top = target.getBoundingClientRect().top + scrollY;
+    window.scrollTo({top, behavior:'auto'});
+    if (updateHistory && target.id) history.pushState(null, '', `#${target.id}`);
+    target.classList.remove('camera-entering');
+    void target.offsetWidth;
+    target.classList.add('camera-entering');
+  }, 260);
+  setTimeout(() => {
+    document.body.classList.remove('camera-moving');
+    cameraBusy = false;
+    setTimeout(() => target.classList.remove('camera-entering'), 1150);
+  }, 760);
+}
+
+document.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener('click', event => {
+  const target = document.querySelector(link.getAttribute('href'));
+  if (!target) return;
+  event.preventDefault();
+  const labels = {talk:'ENTER QUESTION TERMINAL',themes:'ENTER THE EXPERIENCE TREE',shelf:'ENTER THE BOOK ORBIT',top:'RETURN TO THE BEGINNING'};
+  cinematicScroll(target, labels[target.id] || 'MOVING THROUGH THE LIBRARY');
+}));
+
+const cameraSections = [...document.querySelectorAll('main > section')];
+cameraSections.forEach(section => section.classList.add('camera-section'));
+let lastScrollY = scrollY;
+let scrollEnergy = 0;
+let scrollFrame = 0;
+
+function updateCameraDepth() {
+  scrollFrame = 0;
+  const viewport = innerHeight;
+  const maximum = Math.max(1, document.documentElement.scrollHeight - viewport);
+  const progress = Math.min(1, Math.max(0, scrollY / maximum));
+  document.documentElement.style.setProperty('--page-progress', `${progress * 100}%`);
+  $('#motionMeter').style.height = `${progress * 100}%`;
+  scrollEnergy = Math.min(55, Math.abs(scrollY - lastScrollY) * .9 + scrollEnergy * .58);
+  lastScrollY = scrollY;
+  cameraSections.forEach(section => {
+    const rect = section.getBoundingClientRect();
+    const relative = Math.max(-1.2, Math.min(1.2, (rect.top + rect.height * .5 - viewport * .5) / viewport));
+    section.style.setProperty('--camera-shift', `${relative * -22}px`);
+    section.style.setProperty('--camera-opacity', `${Math.max(.68, 1 - Math.abs(relative) * .12)}`);
+  });
+}
+
+addEventListener('scroll', () => {
+  if (!scrollFrame) scrollFrame = requestAnimationFrame(updateCameraDepth);
+}, {passive:true});
+addEventListener('resize', updateCameraDepth);
+updateCameraDepth();
+
+if (!reduceMotion) {
+  const canvas = $('#livingField');
+  const context = canvas.getContext('2d');
+  let fieldWidth = 0;
+  let fieldHeight = 0;
+  let fieldPointerX = .5;
+  let fieldPointerY = .5;
+  let fieldVisible = true;
+  let strands = [];
+  let particles = [];
+
+  function resizeField() {
+    const ratio = Math.min(devicePixelRatio || 1, 1.5);
+    fieldWidth = innerWidth;
+    fieldHeight = innerHeight;
+    canvas.width = Math.round(fieldWidth * ratio);
+    canvas.height = Math.round(fieldHeight * ratio);
+    canvas.style.width = `${fieldWidth}px`;
+    canvas.style.height = `${fieldHeight}px`;
+    context.setTransform(ratio,0,0,ratio,0,0);
+    const strandCount = fieldWidth < 700 ? 7 : 13;
+    strands = Array.from({length:strandCount}, (_, index) => ({
+      x:(index + .5) / strandCount,
+      phase:Math.random() * Math.PI * 2,
+      speed:.00012 + Math.random() * .00018,
+      width:.35 + Math.random() * 1.05,
+      alpha:.025 + Math.random() * .07
+    }));
+    const particleCount = fieldWidth < 700 ? 12 : 24;
+    particles = Array.from({length:particleCount}, () => ({x:Math.random(),y:Math.random(),vx:(Math.random()-.5)*.00008,vy:(Math.random()-.5)*.00008,phase:Math.random()*6.28}));
+  }
+
+  function drawField(time) {
+    if (!fieldVisible) { requestAnimationFrame(drawField); return; }
+    context.clearRect(0,0,fieldWidth,fieldHeight);
+    const energy = Math.min(1, scrollEnergy / 35);
+    scrollEnergy *= .94;
+    strands.forEach((strand,index) => {
+      const pulse = .5 + .5 * Math.sin(time * strand.speed + strand.phase);
+      const baseX = strand.x * fieldWidth + (fieldPointerX - .5) * (18 + index);
+      const gradient = context.createLinearGradient(0,0,0,fieldHeight);
+      gradient.addColorStop(0,'rgba(255,255,255,0)');
+      gradient.addColorStop(.25,`rgba(220,228,217,${strand.alpha * pulse})`);
+      gradient.addColorStop(.62,`rgba(239,82,59,${strand.alpha * (1.2 + energy * 2)})`);
+      gradient.addColorStop(1,'rgba(255,255,255,0)');
+      context.beginPath();
+      context.moveTo(baseX, -30);
+      for (let y=0;y<=fieldHeight+40;y+=70) {
+        const wave = Math.sin(y * .009 + time * strand.speed * 2 + strand.phase) * (8 + energy * 16);
+        context.lineTo(baseX + wave, y);
+      }
+      context.strokeStyle = gradient;
+      context.lineWidth = strand.width + energy * .8;
+      context.stroke();
+    });
+    particles.forEach(particle => {
+      particle.x = (particle.x + particle.vx * (1 + energy * 5) + 1) % 1;
+      particle.y = (particle.y + particle.vy * (1 + energy * 5) + 1) % 1;
+    });
+    for (let i=0;i<particles.length;i++) {
+      const a = particles[i];
+      const ax = a.x * fieldWidth + (fieldPointerX-.5) * 24;
+      const ay = a.y * fieldHeight + (fieldPointerY-.5) * 18;
+      for (let j=i+1;j<particles.length;j++) {
+        const b = particles[j];
+        const bx = b.x * fieldWidth;
+        const by = b.y * fieldHeight;
+        const distance = Math.hypot(ax-bx,ay-by);
+        if (distance < 180) {
+          context.beginPath(); context.moveTo(ax,ay); context.lineTo(bx,by);
+          context.strokeStyle = `rgba(196,206,195,${(1-distance/180)*(.035+energy*.045)})`;
+          context.lineWidth = .5; context.stroke();
+        }
+      }
+      context.beginPath(); context.arc(ax,ay,1.1+energy,0,Math.PI*2);
+      context.fillStyle = `rgba(239,82,59,${.11 + .08*Math.sin(time*.001+a.phase)})`; context.fill();
+    }
+    requestAnimationFrame(drawField);
+  }
+
+  addEventListener('pointermove', event => {
+    fieldPointerX = event.clientX / innerWidth;
+    fieldPointerY = event.clientY / innerHeight;
+    document.documentElement.style.setProperty('--pointer-x', `${event.clientX}px`);
+    document.documentElement.style.setProperty('--pointer-y', `${event.clientY}px`);
+  }, {passive:true});
+  document.addEventListener('visibilitychange', () => { fieldVisible = !document.hidden; });
+  addEventListener('resize', resizeField);
+  resizeField();
+  requestAnimationFrame(drawField);
+}
+
+if (matchMedia('(pointer:fine)').matches && !reduceMotion) {
+  const tiltSelector = '.book-card,.mini-book,.answer-insight-grid article,.terminal-card';
+  const magneticSelector = '.primary-action,.experience-root,.modal-continue,.answer-actions button';
+  document.addEventListener('pointermove', event => {
+    const tilt = event.target.closest(tiltSelector);
+    if (tilt) {
+      const rect = tilt.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width;
+      const y = (event.clientY - rect.top) / rect.height;
+      tilt.style.setProperty('--tilt-x', `${(.5-y)*5}deg`);
+      tilt.style.setProperty('--tilt-y', `${(x-.5)*6}deg`);
+      tilt.style.setProperty('--glow-x', `${x*100}%`);
+      tilt.style.setProperty('--glow-y', `${y*100}%`);
+      tilt.classList.add('is-tilting');
+    }
+    const magnetic = event.target.closest(magneticSelector);
+    if (magnetic) {
+      const rect = magnetic.getBoundingClientRect();
+      magnetic.style.setProperty('--mag-x', `${(event.clientX - rect.left - rect.width/2)*.08}px`);
+      magnetic.style.setProperty('--mag-y', `${(event.clientY - rect.top - rect.height/2)*.1}px`);
+      magnetic.classList.add('magnetic');
+    }
+  }, {passive:true});
+  document.addEventListener('pointerout', event => {
+    const tilt = event.target.closest(tiltSelector);
+    if (tilt && !tilt.contains(event.relatedTarget)) tilt.classList.remove('is-tilting');
+    const magnetic = event.target.closest(magneticSelector);
+    if (magnetic && !magnetic.contains(event.relatedTarget)) {
+      magnetic.style.setProperty('--mag-x','0px'); magnetic.style.setProperty('--mag-y','0px');
+      magnetic.classList.remove('magnetic');
+    }
+  });
 }
