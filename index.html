@@ -57,6 +57,7 @@
       <a href="#discover">随机一问</a>
       <a href="#themes">百词索引</a>
       <a href="#shelf">百本书架</a>
+      <a href="#trail">我的轨迹</a>
       <button class="notes-open" id="notesOpen" aria-label="打开我的问题札记">我的札记 <span id="notesCount">0</span></button>
       <button class="sound" id="soundToggle" aria-label="播放背景音乐"><span>♪</span><span id="soundLabel">播放音乐</span></button>
     </nav>
@@ -185,8 +186,18 @@
       <div class="note-scene-actions">
         <button id="noteSave">把这张札记留下来 <span>＋</span></button>
         <button id="noteShare">复制为可以分享的文字 <span>↗</span></button>
+        <button id="noteImage">生成分享图片 <span>▣</span></button>
         <button id="noteAgain">带着新问题回去 <span>↺</span></button>
         <p id="noteToast" role="status"></p>
+      </div>
+      <div class="followup-station">
+        <div class="followup-copy"><span>CONTINUE THE THOUGHT</span><h3>答案之后，<br>还可以再问一层。</h3><p>新的问题会记得你刚才谈过什么，但仍然允许你改变方向。</p></div>
+        <div class="followup-thread" id="followupThread"></div>
+        <div class="followup-input">
+          <label for="followupInput">沿着这条思想路径继续问</label>
+          <textarea id="followupInput" maxlength="300" placeholder="比如：可是我真正害怕的，好像不是失败……"></textarea>
+          <div><span id="followupCount">0 / 300</span><button id="followupSubmit">继续向下问 <b>↗</b></button></div>
+        </div>
       </div>
     </section>
 
@@ -246,6 +257,27 @@
         <article><b>04</b><h3>留下一步</h3><p>把理解收束成一个可继续追问的问题，和今天能够完成的小动作。</p></article>
       </div>
       <div class="method-limit"><span>这座图书馆的边界</span><p>它不是搜索引擎、医生或心理治疗师，也不会替你做决定。它是一件帮助人重新描述问题的交互作品。</p></div>
+    </section>
+
+    <section class="trail-section light-stage" id="trail">
+      <div class="trail-head">
+        <div><span>07 / YOUR QUESTION ORBIT</span><h2>你反复追问的，<br>也许就是你正在成为的。</h2></div>
+        <p>所有数据只留在当前浏览器。保存的札记越多，这张私人星图就越清晰。</p>
+      </div>
+      <div class="trail-dashboard">
+        <div class="trail-orbit" id="trailOrbit" aria-label="我的主题星图">
+          <div class="trail-core"><strong id="trailTotal">0</strong><span>QUESTIONS<br>KEPT</span></div>
+          <div id="trailPlanets"></div>
+        </div>
+        <div class="trail-reading">
+          <span class="trail-label">WHAT KEEPS RETURNING</span>
+          <h3 id="trailTitle">你的星图还在等待第一个问题。</h3>
+          <p id="trailInsight">保存一张札记后，这里会显示你反复靠近的主题，而不是给你贴上固定标签。</p>
+          <div class="trail-bars" id="trailBars"></div>
+          <div class="trail-actions"><button id="trailOpenNotes">打开全部札记 <span>↗</span></button><button id="trailAskAgain">从一个旧问题继续 <span>↺</span></button></div>
+        </div>
+      </div>
+      <div class="trail-timeline" id="trailTimeline"></div>
     </section>
 
     <section class="footer-quote">
