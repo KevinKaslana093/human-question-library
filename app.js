@@ -4,9 +4,12 @@ const themeById = id => THEMES.find(theme => theme.id === id);
 const normalize = value => (value || '').toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]/g, '');
 const hashText = text => [...text].reduce((sum, ch) => ((sum << 5) - sum + ch.charCodeAt(0)) | 0, 0) >>> 0;
 const pick = (items, seed = 0) => items[seed % items.length];
+const escapeHTML = value => String(value || '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
 
 let visibleLimit = 12;
 let activeTheme = '';
+let selectedIntent = 'auto';
+let currentAnswerRecord = null;
 const COVER_SEED = {
   1:{coverId:13129044,key:'/works/OL2950942W'}, 2:{coverId:12725620,key:'/works/OL74128W'},
   3:{coverId:8179733,key:'/works/OL17872278W'}, 11:{coverId:13316390,key:'/works/OL27955361W'},
@@ -32,6 +35,23 @@ const ACTIONS = {
 };
 
 const CRISIS_WORDS = ['不想活','自杀','轻生','结束生命','伤害自己','活不下去'];
+
+const EXPERIENCE_BRANCHES = [
+  {id:'self', label:'自己', en:'SELF', domains:['self','emotion'], description:'身份、成长、羞耻、勇气与那些只有自己听见的声音。', x:18, y:24},
+  {id:'others', label:'他人', en:'OTHERS', domains:['connect','love'], description:'陪伴、亲密、冲突、合作，以及我们如何靠近又如何分开。', x:50, y:12},
+  {id:'body', label:'身体', en:'BODY', domains:['body'], description:'欲望、边界、健康、休息，以及身体比语言更早知道的事。', x:82, y:24},
+  {id:'world', label:'世界', en:'WORLD', domains:['society'], description:'权力、工作、正义、群体，以及个人问题背后的共同结构。', x:82, y:72},
+  {id:'time', label:'时间', en:'TIME', domains:['create','world'], description:'创造、变化、未来、记忆，以及我们怎样与尚未发生之事相处。', x:50, y:86},
+  {id:'unknown', label:'未知', en:'UNKNOWN', domains:['mind','existence'], description:'好奇、真理、意义、死亡，以及那些不会一次回答完的问题。', x:18, y:72}
+];
+
+const INTENTS = {
+  comfort:{label:'先被接住', title:'先别急着解决，先让这件事有一个被安放的位置。'},
+  understand:{label:'想明白', title:'你在问的，也许不只是表面上的那个问题。'},
+  decide:{label:'做决定', title:'真正困难的不是选项，而是每个选项会让你成为什么人。'},
+  action:{label:'往前一步', title:'不需要一次改变全部，先找到能够发生的最小一步。'},
+  explore:{label:'自由探索', title:'有些问题不急着有用，它们只是想把世界再打开一点。'}
+};
 
 function displayTag(id) {
   const theme = themeById(id);
@@ -111,21 +131,40 @@ async function resolveOneCover(book) {
   } catch { return false; }
 }
 
-function renderThemes(domain = 'all') {
-  const domains = Object.entries(DOMAIN_NAMES);
-  $('#domainTabs').innerHTML = `<button class="active" data-domain="all">全部 100</button>` +
-    domains.map(([id,name]) => `<button data-domain="${id}">${name}</button>`).join('');
-  const draw = selected => {
-    const list = selected === 'all' ? THEMES : THEMES.filter(t => t.domain === selected);
-    $('#themeCloud').innerHTML = list.map(t => `<button data-theme="${t.id}"><span>${String(t.index).padStart(2,'0')}</span>${t.label}</button>`).join('');
+function renderThemes(initialBranch = 'self') {
+  const roots = $('#experienceRoots');
+  const lines = $('#neuralLines');
+  roots.innerHTML = EXPERIENCE_BRANCHES.map((branch, index) => `
+    <button class="experience-root" data-branch="${branch.id}" style="--x:${branch.x}%;--y:${branch.y}%;--delay:${index * .11}s">
+      <small>${branch.en}</small><strong>${branch.label}</strong>
+    </button>`).join('');
+  lines.innerHTML = EXPERIENCE_BRANCHES.map(branch => {
+    const controlX = (50 + branch.x) / 2 + (branch.y > 50 ? 4 : -4);
+    const controlY = (49 + branch.y) / 2;
+    return `<path data-line="${branch.id}" d="M 50 49 Q ${controlX} ${controlY} ${branch.x} ${branch.y}" />`;
+  }).join('');
+
+  const draw = branchId => {
+    const branch = EXPERIENCE_BRANCHES.find(item => item.id === branchId);
+    const list = branch ? THEMES.filter(theme => branch.domains.includes(theme.domain)) : THEMES;
+    roots.querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.branch === branchId));
+    lines.querySelectorAll('path').forEach(path => path.classList.toggle('active', path.dataset.line === branchId));
+    $('#experienceCore').classList.toggle('active', !branch);
+    $('#branchReadout').innerHTML = branch
+      ? `<span>${String(list.length).padStart(2,'0')} 个节点正在生长</span><h3>${branch.label}</h3><p>${branch.description}</p>`
+      : `<span>全部节点已展开</span><h3>一百种人类经验</h3><p>它们不是一百个彼此孤立的抽屉，而是一张会互相牵动的网络。</p>`;
+    $('#themeCloud').innerHTML = list.map((theme, index) => `
+      <button data-theme="${theme.id}" style="--leaf-delay:${Math.min(index, 20) * .035}s">
+        <span>${String(theme.index).padStart(2,'0')}</span><strong>${theme.label}</strong><small>${theme.line}</small>
+      </button>`).join('');
   };
-  draw(domain);
-  $('#domainTabs').addEventListener('click', e => {
-    const button = e.target.closest('[data-domain]');
-    if (!button) return;
-    $('#domainTabs').querySelectorAll('button').forEach(b => b.classList.toggle('active', b === button));
-    draw(button.dataset.domain);
+
+  roots.addEventListener('click', event => {
+    const root = event.target.closest('[data-branch]');
+    if (root) draw(root.dataset.branch);
   });
+  $('#experienceCore').addEventListener('click', () => draw('all'));
+  draw(initialBranch);
 }
 
 function filteredBooks() {
@@ -171,11 +210,69 @@ function scoreThemes(text) {
 function recommendBooks(themes, text, limit = 3) {
   const seed = hashText(text);
   const ids = themes.map(t => t.id);
-  return BOOKS.map(book => {
+  const candidates = BOOKS.map(book => {
     let score = book.tags.reduce((sum, tag) => sum + (ids.includes(tag) ? 9 - ids.indexOf(tag) * 2 : 0), 0);
     score += ((seed + book.n * 17) % 19) / 20;
     return {book, score};
-  }).sort((a,b) => b.score - a.score).slice(0, limit).map(x => x.book);
+  });
+  const selected = [];
+  while (selected.length < limit && candidates.length) {
+    candidates.forEach(candidate => {
+      const overlap = selected.reduce((sum, chosen) => sum + candidate.book.tags.filter(tag => chosen.tags.includes(tag)).length, 0);
+      candidate.adjusted = candidate.score - overlap * 1.2;
+    });
+    candidates.sort((a,b) => b.adjusted - a.adjusted);
+    selected.push(candidates.shift().book);
+  }
+  return selected;
+}
+
+function detectIntent(text) {
+  if (selectedIntent !== 'auto') return selectedIntent;
+  const rules = [
+    ['comfort', /(我.{0,10}(难过|痛苦|委屈|孤独|崩溃|被抛弃|失去|害怕|焦虑|撑不住|伤心|想哭|很糟)|朋友.{0,8}(离开|抛弃)|没人.{0,6}(理解|陪|在乎))/],
+    ['decide', /(要不要|该不该|选择|选哪个|还是|决定|纠结|怎么办)/],
+    ['action', /(如何|怎么做|开始|行动|改变|完成|坚持|计划|拖延)/],
+    ['understand', /(为什么|怎么回事|本质|原因|理解|想明白|意味着什么|到底)/],
+    ['explore', /(无聊|随便|好奇|看看|有意思|不知道问什么)/]
+  ];
+  return rules.find(([,pattern]) => pattern.test(text))?.[0] || 'understand';
+}
+
+function buildTension(intent, themes) {
+  const first = themes[0]?.label || '在意的事';
+  const second = themes[1]?.label || '安全感';
+  const templates = {
+    comfort:`一部分的你正在经历「${first}」，另一部分可能又要求自己赶快恢复正常。真正消耗人的，常常正是感受与自我要求同时发生。`,
+    understand:`表面上你在追问「${first}」，更深处却可能同时牵动「${second}」。如果只回答其中一个，问题仍会从另一个方向回来。`,
+    decide:`你并不只是比较两个选项，也在衡量「${first}」与「${second}」哪一个更值得由现在的你承担。`,
+    action:`你已经知道一些方向，卡住你的可能不是意愿，而是把「${first}」变成行动时，仍想一次照顾好「${second}」。`,
+    explore:`你的问题暂时不需要被收束。它正在「${first}」与「${second}」之间建立一条以前没有的连接。`
+  };
+  return templates[intent];
+}
+
+function buildNextQuestion(intent, themes) {
+  const first = themes[0]?.label || '这件事';
+  const questions = {
+    comfort:`如果暂时不用证明自己没事，你最希望谁能够理解你关于「${first}」的哪一部分？`,
+    understand:`如果把所有“应该”拿掉，你真正想弄明白的究竟是哪一个为什么？`,
+    decide:`一年后的你回头看，会更遗憾做错了，还是从来没有认真选择过？`,
+    action:`哪一个小到不会吓退你的动作，能够在十分钟之内证明事情已经开始？`,
+    explore:`这个问题最让你好奇的部分，是答案本身，还是追问时出现的那个自己？`
+  };
+  return questions[intent];
+}
+
+function bookAngle(book, response, index) {
+  const matches = book.tags.filter(tag => response.themes.some(theme => theme.id === tag)).map(displayTag);
+  const subject = matches.length ? `「${matches.slice(0,2).join('」与「')}」` : '另一个观察位置';
+  const frames = [
+    `第一面镜子：用${subject}重新描述问题，而不是急着给它下结论。`,
+    `第二面镜子：从${subject}挑战你现在最熟悉的解释。`,
+    `第三面镜子：把${subject}带回一个可以尝试的现实动作。`
+  ];
+  return frames[index];
 }
 
 function buildResponse(text) {
@@ -183,8 +280,11 @@ function buildResponse(text) {
     const safetyTheme = themeById('hope');
     return {
       themes:[safetyTheme],
+      intent:'comfort', intentLabel:'需要现实支持',
       title:'先不要一个人扛，也先不要做任何伤害自己的决定。',
       body:'你说出的这些话值得被认真对待。这个网页不能替代现实中的帮助：请现在就联系一个你信任的人，让对方来陪你，或陪你去见医生、心理专业人员。如果你觉得自己可能马上伤害自己，请立刻联系当地急救服务或危机援助热线，并远离可能伤害自己的物品。',
+      tension:'现在最重要的不是解释问题，而是让你从独自承受转向有人在场、有人知道、有人能够提供现实帮助。',
+      question:'此刻有哪一个人，是你可以马上拨通电话或发出求助消息的？',
       action:'现在就把这句话发给一个可信的人：“我现在不安全，需要你来陪我，并帮我联系专业支持。”',
       books:recommendBooks([safetyTheme, themeById('meaning')], text)
     };
@@ -197,18 +297,23 @@ function buildResponse(text) {
   themes = themes.slice(0, 3);
   const primary = themes[0];
   const seed = hashText(text);
+  const intent = detectIntent(text);
+  const intentInfo = INTENTS[intent];
   const title = countIntent
     ? `你怎么这么好奇呢？这里现在刚好有 ${BOOKS.length} 本书。`
-    : primary.line;
+    : intentInfo.title;
   const opener = pick(DOMAIN_RESPONSES[primary.domain], seed);
   const blend = themes.length > 1
-    ? `我还在这句话里读到「${themes.slice(1).map(t => t.label).join('」和「')}」。它们放在一起，说明你的问题不只属于一个抽屉。`
-    : '它不是一个必须立刻解决的问题，也可以先成为一条继续探索的线索。';
-  const sourceWhy = `下面的书并不是因为共享一个表面关键词才出现：它们分别从${themes.map(t => t.label).join('、')}的角度，替这个问题增加新的观察位置。`;
+    ? `这句话里同时出现了「${themes.map(t => t.label).join('」「')}」。它们放在一起，说明你的问题不属于一个单独的抽屉。`
+    : '这个问题可以先被认真看见，不必立刻被压缩成一个标准答案。';
+  const echo = text.length > 72 ? `${text.slice(0,72)}……` : text;
   return {
     themes,
+    intent, intentLabel:intentInfo.label,
     title,
-    body:`${opener}${countIntent ? ` 这一百本书横跨认知、创造、连接、亲密、身体、成长、情绪、社会、未来与存在十个区域。` : ''}${blend}${sourceWhy}`,
+    body:`你写下的是：“${echo}” ${opener}${countIntent ? ` 这一百本书横跨十个知识区域，但数量并不是最重要的。` : ''}${blend}`,
+    tension:buildTension(intent, themes),
+    question:buildNextQuestion(intent, themes),
     action:ACTIONS[primary.domain],
     books:recommendBooks(themes, text),
   };
@@ -228,16 +333,20 @@ async function showAnswer() {
   button.querySelector('span:first-child').textContent = '正在穿过一百本书…';
   setTimeout(async () => {
     const response = buildResponse(text);
+    currentAnswerRecord = {...response, questionText:text, createdAt:new Date().toISOString()};
     await Promise.all(response.books.map(async book => { await resolveOneCover(book); await preloadCover(book, 'small'); }));
     $('#moodTag').textContent = response.themes.map(t => t.label).join(' × ');
-    $('#questionPath').innerHTML = `<span class="path-node">你的问题</span>` + response.themes.map(theme => `<span class="path-line"></span><span class="path-node">${theme.label}</span>`).join('') + `<span class="path-line"></span><span class="path-node">${response.books.length} 本书</span>`;
+    $('#answerIntent').textContent = `你需要的是：${response.intentLabel}`;
+    $('#questionPath').innerHTML = `<span class="path-node">你的问题</span><span class="path-line"></span><span class="path-node">${response.intentLabel}</span>` + response.themes.map(theme => `<span class="path-line"></span><span class="path-node">${theme.label}</span>`).join('') + `<span class="path-line"></span><span class="path-node">三种视角</span>`;
     $('#answerTitle').textContent = response.title;
     $('#answerText').textContent = response.body;
-    $('#smallStep').innerHTML = `<strong>把问题往前推一步｜</strong>${response.action}`;
-    $('#inspiredBooks').innerHTML = response.books.map(book => `
+    $('#answerTension').textContent = response.tension;
+    $('#answerQuestion').textContent = response.question;
+    $('#smallStep').innerHTML = `<strong>今天可以做的一件小事</strong><span>${response.action}</span>`;
+    $('#inspiredBooks').innerHTML = response.books.map((book, index) => `
       <button class="mini-book" data-book="${book.n}">
         <span class="mini-cover">${coverMarkup(book, 'small')}</span>
-        <span><strong>《${book.zh}》</strong><span>${book.note}</span><em>${book.tags.filter(t => response.themes.some(x => x.id === t)).map(displayTag).join(' · ') || '换一个观察位置'}</em></span>
+        <span><small class="source-badge">思想转述 / ${String(index + 1).padStart(2,'0')}</small><strong>《${book.zh}》</strong><span class="book-angle">${bookAngle(book, response, index)}</span><em>${book.tags.filter(t => response.themes.some(x => x.id === t)).map(displayTag).join(' · ') || '换一个观察位置'}</em></span>
       </button>`).join('');
     $('#answer').hidden = false;
     $('#answer').classList.remove('reveal');
@@ -245,6 +354,7 @@ async function showAnswer() {
     $('#answer').classList.add('reveal');
     button.classList.remove('loading');
     button.querySelector('span:first-child').textContent = '让一百本书回答';
+    $('#saveToast').textContent = '';
     $('#answer').scrollIntoView({behavior:'smooth', block:'start'});
   }, 620);
 }
@@ -276,7 +386,7 @@ async function openBook(n, sourceElement) {
     return `<li><strong>${displayTag(tag)}</strong>${theme ? `<span>${theme.line}</span>` : ''}</li>`;
   }).join('');
   const mainTheme = book.tags.map(themeById).find(Boolean);
-  $('#modalQuote').textContent = `“${mainTheme?.line || '一本书不会替你结束问题，但会改变你提问的位置。'}”`;
+  $('#modalQuote').textContent = mainTheme?.line || '一本书不会替你结束问题，但会改变你提问的位置。';
   $('#modalNavCount').textContent = `${String(book.n).padStart(3,'0')} / ${String(BOOKS.length).padStart(3,'0')}`;
   $('#modalSource').href = details.key ? `https://openlibrary.org${details.key}` : `https://openlibrary.org/search?q=${encodeURIComponent(book.title + ' ' + book.author)}`;
   const sourceMedia = sourceElement?.querySelector('img');
@@ -321,6 +431,75 @@ function closeBook(fromHistory = false) {
   }
 }
 
+function getNotes() {
+  try { return JSON.parse(localStorage.getItem('human-library-notes-v1') || '[]'); }
+  catch { return []; }
+}
+
+function setNotes(notes) {
+  localStorage.setItem('human-library-notes-v1', JSON.stringify(notes));
+  renderNotes();
+}
+
+function renderNotes() {
+  const notes = getNotes();
+  $('#notesCount').textContent = notes.length;
+  $('#notesList').innerHTML = notes.length ? notes.map(note => `
+    <article class="saved-note" data-note-id="${note.id}">
+      <div class="saved-note-meta"><span>${escapeHTML(note.intentLabel)}</span><time>${new Date(note.createdAt).toLocaleDateString('zh-CN')}</time></div>
+      <h3>${escapeHTML(note.question)}</h3>
+      <p>${escapeHTML(note.title)}</p>
+      <div class="saved-note-tags">${note.themes.map(theme => `<span>${escapeHTML(theme)}</span>`).join('')}</div>
+      <div class="saved-note-actions"><button data-note-open="${note.id}">继续这个问题</button><button data-note-delete="${note.id}" aria-label="删除这条札记">删除</button></div>
+    </article>`).join('') : `<div class="notes-empty"><span>○</span><h3>还没有留下问题</h3><p>当一封回信值得以后再看，点击“保存这次问题”。</p></div>`;
+  $('#notesClear').hidden = !notes.length;
+}
+
+function saveCurrentNote() {
+  if (!currentAnswerRecord) return;
+  const notes = getNotes();
+  const note = {
+    id:String(hashText(currentAnswerRecord.questionText + Date.now())),
+    question:currentAnswerRecord.questionText,
+    title:currentAnswerRecord.title,
+    intent:currentAnswerRecord.intent,
+    intentLabel:currentAnswerRecord.intentLabel,
+    themes:currentAnswerRecord.themes.map(theme => theme.label),
+    action:currentAnswerRecord.action,
+    books:currentAnswerRecord.books.map(book => book.n),
+    createdAt:new Date().toISOString()
+  };
+  setNotes([note, ...notes.filter(item => item.question !== note.question)].slice(0, 30));
+  $('#saveToast').textContent = '已经放进“我的问题札记”，它只保存在这台设备上。';
+}
+
+function shareCurrentNote() {
+  if (!currentAnswerRecord) return;
+  const text = `人类问题图书馆｜我的问题札记\n\n${currentAnswerRecord.questionText}\n\n${currentAnswerRecord.title}\n${currentAnswerRecord.tension}\n\n今天的一步：${currentAnswerRecord.action}\n\n延伸阅读：${currentAnswerRecord.books.map(book => `《${book.zh}》`).join('、')}\nhttps://kevinkaslana093.github.io/human-question-library/`;
+  const done = () => $('#saveToast').textContent = '分享札记已经复制，可以发给你想分享的人。';
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text, done));
+  else fallbackCopy(text, done);
+}
+
+function fallbackCopy(text, done) {
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.style.position = 'fixed'; input.style.opacity = '0';
+  document.body.appendChild(input); input.select(); document.execCommand('copy'); input.remove(); done();
+}
+
+function openNotes() {
+  renderNotes();
+  $('#notesDrawer').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $('#notesClose').focus();
+}
+
+function closeNotes() {
+  $('#notesDrawer').hidden = true;
+  document.body.style.overflow = '';
+}
+
 async function hydrateCovers() {
   const missing = BOOKS.filter(book => !coverMap[book.n]?.coverId);
   if (!missing.length) return;
@@ -353,11 +532,18 @@ async function hydrateCovers() {
 renderThemes();
 renderHero();
 renderShelf();
+renderNotes();
 hydrateCovers();
 
 $('#moodInput').addEventListener('input', () => $('#charCount').textContent = `${$('#moodInput').value.length} / 500`);
 $('#moodInput').addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') showAnswer(); });
 $('#submitBtn').addEventListener('click', showAnswer);
+$('#intentPicker').addEventListener('click', event => {
+  const button = event.target.closest('[data-intent]');
+  if (!button) return;
+  selectedIntent = button.dataset.intent;
+  $('#intentPicker').querySelectorAll('button').forEach(item => item.classList.toggle('active', item === button));
+});
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
   $('#moodInput').value = button.dataset.prompt;
   $('#moodInput').dispatchEvent(new Event('input'));
@@ -400,7 +586,41 @@ $('#bookModal').addEventListener('scroll', event => {
   const maximum = modal.scrollHeight - modal.clientHeight;
   $('#modalProgress').style.width = `${maximum > 0 ? Math.min(100, modal.scrollTop / maximum * 100) : 0}%`;
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeBook(); });
+$('#saveNote').addEventListener('click', saveCurrentNote);
+$('#shareNote').addEventListener('click', shareCurrentNote);
+$('#notesOpen').addEventListener('click', openNotes);
+$('#notesClose').addEventListener('click', closeNotes);
+$('#notesBackdrop').addEventListener('click', closeNotes);
+$('#notesList').addEventListener('click', event => {
+  const remove = event.target.closest('[data-note-delete]');
+  if (remove) {
+    setNotes(getNotes().filter(note => note.id !== remove.dataset.noteDelete));
+    return;
+  }
+  const reopen = event.target.closest('[data-note-open]');
+  if (!reopen) return;
+  const note = getNotes().find(item => item.id === reopen.dataset.noteOpen);
+  if (!note) return;
+  $('#moodInput').value = note.question;
+  $('#moodInput').dispatchEvent(new Event('input'));
+  selectedIntent = note.intent || 'auto';
+  $('#intentPicker').querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.intent === selectedIntent));
+  closeNotes();
+  $('#talk').scrollIntoView({behavior:'smooth'});
+});
+$('#notesClear').addEventListener('click', () => {
+  if (confirm('确定清空当前浏览器里的全部问题札记吗？')) setNotes([]);
+});
+$('.answer-feedback').addEventListener('click', event => {
+  const button = event.target.closest('[data-feedback]');
+  if (!button) return;
+  $('#saveToast').textContent = button.dataset.feedback === 'yes' ? '谢谢你告诉我。愿这条线索能陪你再往前一点。' : '收到。下一版会让“换一个角度”真正根据你的反馈重新回答。';
+});
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (!$('#notesDrawer').hidden) closeNotes();
+  else if (!$('#bookModal').hidden) closeBook();
+});
 window.addEventListener('popstate', () => {
   if (!$('#bookModal').hidden) closeBook(true);
 });
