@@ -1,8 +1,8 @@
 /* 人类问题图书馆：100 本策展书目 + 100 组人类主题词 */
 const BOOKS = [
-  {n:1,zh:'魔鬼出没的世界',title:'The Demon-Haunted World',author:'Carl Sagan',tags:['curiosity','doubt','critical','science','truth'],note:'卡尔·萨根讨论科学精神如何帮我们在谣言、迷信与伪知识之间保持清醒。'},
-  {n:2,zh:'万物简史',title:'A Short History of Nearly Everything',author:'Bill Bryson',tags:['curiosity','wonder','science','history','life'],note:'从宇宙大爆炸走到人类出现，用故事重新点燃对世界的惊奇。'},
-  {n:3,zh:'为什么',title:'The Book of Why',author:'Judea Pearl',tags:['curiosity','critical','decision','science','truth'],note:'从“相关”走向“因果”，学习如何提出更有力量的为什么。'},
+  {n:1,zh:'魔鬼出没的世界',title:'The Demon-Haunted World',author:'Carl Sagan',localCover:true,tags:['curiosity','doubt','critical','science','truth'],note:'卡尔·萨根讨论科学精神如何帮我们在谣言、迷信与伪知识之间保持清醒。'},
+  {n:2,zh:'万物简史',title:'A Short History of Nearly Everything',author:'Bill Bryson',localCover:true,tags:['curiosity','wonder','science','history','life'],note:'从宇宙大爆炸走到人类出现，用故事重新点燃对世界的惊奇。'},
+  {n:3,zh:'为什么',title:'The Book of Why',author:'Judea Pearl',localCover:true,tags:['curiosity','critical','decision','science','truth'],note:'从“相关”走向“因果”，学习如何提出更有力量的为什么。'},
   {n:4,zh:'思考，快与慢',title:'Thinking, Fast and Slow',author:'Daniel Kahneman',tags:['decision','critical','attention','uncertainty','wisdom'],note:'认识直觉与深思两套系统，以及它们如何共同制造判断与偏差。'},
   {n:5,zh:'侦察兵思维',title:'The Scout Mindset',author:'Julia Galef',localCover:true,tags:['doubt','critical','truth','learning','courage'],note:'不急着保卫原有立场，像侦察兵一样努力看清真实地形。'},
   {n:6,zh:'跨能致胜',title:'Range',author:'David Epstein',tags:['learning','curiosity','experimentation','work','change'],note:'在高度专业化的世界里，广泛探索与迁移能力为什么仍然重要。'},
@@ -11,7 +11,7 @@ const BOOKS = [
   {n:9,zh:'科学革命的结构',title:'The Structure of Scientific Revolutions',author:'Thomas S. Kuhn',tags:['science','history','change','truth','culture'],note:'科学并非只靠事实线性累积，也会经历范式的转换与革命。'},
   {n:10,zh:'别闹了，费曼先生',title:"Surely You're Joking, Mr. Feynman!",author:'Richard P. Feynman',tags:['curiosity','play','science','learning','experimentation'],note:'一位物理学家的顽皮人生：好奇不是姿态，而是一种亲手试试看的冲动。'},
 
-  {n:11,zh:'创造的行为',title:'The Creative Act',author:'Rick Rubin',tags:['creativity','inspiration','attention','expression','craft'],note:'把创作看成一种观看世界、接收信号并不断选择的生活方式。'},
+  {n:11,zh:'创造的行为',title:'The Creative Act',author:'Rick Rubin',localCover:true,tags:['creativity','inspiration','attention','expression','craft'],note:'把创作看成一种观看世界、接收信号并不断选择的生活方式。'},
   {n:12,zh:'大魔法',title:'Big Magic',author:'Elizabeth Gilbert',tags:['creativity','inspiration','courage','play','fear'],note:'与恐惧同行，但不让恐惧坐在驾驶座上。'},
   {n:13,zh:'像艺术家一样偷师',title:'Steal Like an Artist',author:'Austin Kleon',tags:['creativity','originality','craft','learning','experimentation'],note:'原创不是凭空出现，而是在诚实吸收、转化与组合中生成。'},
   {n:14,zh:'艺术家之路',title:"The Artist's Way",author:'Julia Cameron',tags:['creativity','inspiration','expression','habit','spirituality'],note:'通过晨间书写与艺术家约会，重新打通被自我怀疑堵住的创造力。'},
@@ -22,7 +22,7 @@ const BOOKS = [
   {n:19,zh:'观看之道',title:'Ways of Seeing',author:'John Berger',tags:['aesthetics','art','culture','power','attention'],note:'我们如何观看图像，也暴露了欲望、阶级、性别和权力如何塑造目光。'},
   {n:20,zh:'设计心理学',title:'The Design of Everyday Things',author:'Donald A. Norman',tags:['design','creativity','empathy','experimentation','responsibility'],note:'好的设计让行动线索清楚可见，而不是把错误都怪在使用者身上。'},
 
-  {n:21,zh:'人类简史',title:'Sapiens',author:'Yuval Noah Harari',tags:['civilization','history','cooperation','culture','power'],note:'人类如何借助共同想象进行大规模合作，并重塑整个星球。'},
+  {n:21,zh:'人类简史',title:'Sapiens',author:'Yuval Noah Harari',localCover:true,tags:['civilization','history','cooperation','culture','power'],note:'人类如何借助共同想象进行大规模合作，并重塑整个星球。'},
   {n:22,zh:'人性中的善良天使',title:'Humankind',author:'Rutger Bregman',tags:['trust','cooperation','hope','society','humanity'],note:'重新检视“人性自私”的默认叙事，寻找信任与合作的证据。'},
   {n:23,zh:'正义之心',title:'The Righteous Mind',author:'Jonathan Haidt',tags:['culture','conflict','empathy','politics','truth'],note:'不同立场的人为何真诚相信彼此冲突的道德世界。'},
   {n:24,zh:'文化地图',title:'The Culture Map',author:'Erin Meyer',tags:['culture','communication','collaboration','work','empathy'],note:'跨文化合作中，反馈、信任、时间和决策方式为何如此不同。'},
@@ -34,7 +34,7 @@ const BOOKS = [
   {n:30,zh:'非暴力沟通',title:'Nonviolent Communication',author:'Marshall B. Rosenberg',tags:['communication','empathy','conflict','boundaries','care'],note:'从评判回到观察、感受、需要和请求，让对话不再互相伤害。'},
 
   {n:31,zh:'依恋',title:'Attached',author:'Amir Levine',tags:['attachment','love','intimacy','anxiety','boundaries'],note:'理解不同依恋模式如何影响亲密关系里的靠近、追逐与退缩。'},
-  {n:32,zh:'爱的全部',title:'All About Love',author:'bell hooks',tags:['love','care','justice','family','truth'],note:'爱不仅是感觉，更是一组包含照顾、承诺、信任与责任的行动。'},
+  {n:32,zh:'爱的全部',title:'All About Love',author:'bell hooks',localCover:true,tags:['love','care','justice','family','truth'],note:'爱不仅是感觉，更是一组包含照顾、承诺、信任与责任的行动。'},
   {n:33,zh:'幸福的婚姻',title:'The Seven Principles for Making Marriage Work',author:'John Gottman',tags:['marriage','communication','love','conflict','care'],note:'用长期观察研究理解伴侣如何修复冲突、维持友谊和共同意义。'},
   {n:34,zh:'紧紧抱住我',title:'Hold Me Tight',author:'Sue Johnson',tags:['attachment','intimacy','marriage','communication','vulnerability'],note:'许多争吵的深处，是“你会不会在我需要时回应我”的依恋呼喊。'},
   {n:35,zh:'少有人走的路',title:'The Road Less Traveled',author:'M. Scott Peck',tags:['love','discipline','growth','responsibility','spirituality'],note:'把爱理解为促进彼此成长的意愿，而不是短暂的迷恋感受。'},
@@ -44,7 +44,7 @@ const BOOKS = [
   {n:39,zh:'你就是孩子最好的玩具',title:'The Book You Wish Your Parents Had Read',author:'Philippa Perry',tags:['parenting','family','communication','care','healing'],note:'亲子关系不仅靠技巧，也取决于成年人如何理解自己的旧伤与反应。'},
   {n:40,zh:'爱的艺术',title:'The Art of Loving',author:'Erich Fromm',tags:['love','discipline','care','maturity','society'],note:'爱是一种需要学习与实践的能力，而不只是遇见对的人。'},
 
-  {n:41,zh:'如她所愿',title:'Come as You Are',author:'Emily Nagoski',tags:['sexuality','body','desire','shame','science'],note:'用性科学理解欲望的差异、情境与压力，让身体不再被单一标准衡量。'},
+  {n:41,zh:'如她所愿',title:'Come as You Are',author:'Emily Nagoski',localCover:true,tags:['sexuality','body','desire','shame','science'],note:'用性科学理解欲望的差异、情境与压力，让身体不再被单一标准衡量。'},
   {n:42,zh:'圈养中的交配',title:'Mating in Captivity',author:'Esther Perel',tags:['sexuality','desire','marriage','intimacy','freedom'],note:'长期关系中的安全感与欲望所需的神秘、距离之间，如何保持张力。'},
   {n:43,zh:'道德浪女',title:'The Ethical Slut',author:'Dossie Easton',tags:['sexuality','consent','boundaries','desire','communication'],note:'从知情同意、诚实与边界出发讨论多元亲密关系。'},
   {n:44,zh:'性趣探秘',title:'Sex at Dawn',author:'Christopher Ryan',tags:['sexuality','history','desire','culture','science'],note:'以演化与人类学视角挑战现代社会关于性与一夫一妻的某些默认故事。'},
@@ -55,9 +55,9 @@ const BOOKS = [
   {n:49,zh:'亲密',title:'Intimacy',author:'Osho',tags:['intimacy','vulnerability','trust','freedom','love'],note:'亲密要求袒露真实，也要求一个人拥有独处与自知的能力。'},
   {n:50,zh:'改变的意愿',title:'The Will to Change',author:'bell hooks',tags:['gender','love','vulnerability','healing','culture'],note:'讨论父权如何阻断男性的情感生命，以及爱如何成为改变的入口。'},
 
-  {n:51,zh:'被讨厌的勇气',title:'The Courage to Be Disliked',author:'Ichiro Kishimi',tags:['courage','freedom','boundaries','responsibility','change'],note:'借阿德勒心理学区分彼此的课题，不再把所有人的认可当作自由前提。'},
-  {n:52,zh:'活出生命的意义',title:"Man's Search for Meaning",author:'Viktor E. Frankl',tags:['meaning','resilience','hope','responsibility','mortality'],note:'在无法选择遭遇时，人仍可以选择态度，并为具体时刻找到意义。'},
-  {n:53,zh:'沉思录',title:'Meditations',author:'Marcus Aurelius',tags:['wisdom','discipline','responsibility','mortality','peace'],note:'把注意力从不可控的外界收回到判断、品格与下一步行动。'},
+  {n:51,zh:'被讨厌的勇气',title:'The Courage to Be Disliked',author:'Ichiro Kishimi',localCover:true,tags:['courage','freedom','boundaries','responsibility','change'],note:'借阿德勒心理学区分彼此的课题，不再把所有人的认可当作自由前提。'},
+  {n:52,zh:'活出生命的意义',title:"Man's Search for Meaning",author:'Viktor E. Frankl',localCover:true,tags:['meaning','resilience','hope','responsibility','mortality'],note:'在无法选择遭遇时，人仍可以选择态度，并为具体时刻找到意义。'},
+  {n:53,zh:'沉思录',title:'Meditations',author:'Marcus Aurelius',localCover:true,tags:['wisdom','discipline','responsibility','mortality','peace'],note:'把注意力从不可控的外界收回到判断、品格与下一步行动。'},
   {n:54,zh:'脆弱的力量',title:'Daring Greatly',author:'Brené Brown',tags:['vulnerability','courage','shame','belonging','leadership'],note:'真正的勇敢不是无所畏惧，而是愿意在不确定里被看见。'},
   {n:55,zh:'不完美的礼物',title:'The Gifts of Imperfection',author:'Brené Brown',tags:['shame','belonging','confidence','care','truth'],note:'放下“应该成为谁”，练习带着不完美真实地生活。'},
   {n:56,zh:'原子习惯',title:'Atomic Habits',author:'James Clear',tags:['habit','discipline','change','identity','patience'],note:'微小行为通过系统与环境累积，身份也在一次次行动中形成。'},
@@ -99,7 +99,7 @@ const BOOKS = [
   {n:89,zh:'对齐问题',title:'The Alignment Problem',author:'Brian Christian',tags:['technology','ethics','intelligence','bias','responsibility'],note:'机器学习系统如何继承目标、数据与社会偏差，人类又该如何对齐它们。'},
   {n:90,zh:'浪潮将至',title:'The Coming Wave',author:'Mustafa Suleyman',tags:['technology','future','power','risk','politics'],note:'强大通用技术扩散之后，社会如何面对控制与开放的两难。'},
 
-  {n:91,zh:'快乐之书',title:'The Book of Joy',author:'Dalai Lama',tags:['joy','hope','compassion','gratitude','peace'],note:'在逆境里寻找喜悦的八根支柱，包括视角、幽默、接纳与给予。'},
+  {n:91,zh:'快乐之书',title:'The Book of Joy',author:'Dalai Lama',localCover:true,tags:['joy','hope','compassion','gratitude','peace'],note:'在逆境里寻找喜悦的八根支柱，包括视角、幽默、接纳与给予。'},
   {n:92,zh:'小王子',title:'The Little Prince',author:'Antoine de Saint-Exupéry',tags:['love','friendship','wonder','responsibility','loneliness'],note:'用童话重新观看成人世界、驯养、失去和真正重要的东西。'},
   {n:93,zh:'悉达多',title:'Siddhartha',author:'Hermann Hesse',tags:['spirituality','wisdom','experience','meaning','peace'],note:'一个人必须亲自穿过欲望、失落与河流，才找到不能被传授的智慧。'},
   {n:94,zh:'牧羊少年奇幻之旅',title:'The Alchemist',author:'Paulo Coelho',tags:['purpose','journey','hope','choice','wonder'],note:'追寻“天命”的寓言，也提醒人留意一路上真正学到的东西。'},
